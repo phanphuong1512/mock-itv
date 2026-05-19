@@ -19,11 +19,13 @@ start.bat
 ```
 
 The script will automatically:
-1. Create a Python virtual environment and install backend dependencies.
-2. Install frontend Node.js dependencies.
-3. Start the FastAPI backend server on `http://localhost:8000`.
-4. Start the Next.js frontend server on `http://localhost:3000`.
-5. Open your default web browser to the application.
+1. Check and clear any active processes on ports `3000` (frontend) and `8000` (backend) to prevent port conflicts.
+2. Create a Python virtual environment and install backend dependencies.
+3. Install frontend Node.js dependencies.
+4. Start the FastAPI backend server on `http://localhost:8000` using `uvicorn` with auto-reload.
+5. Start the Next.js frontend server on `http://localhost:3000`.
+6. Open your default web browser to the application.
+7. Terminate both backend and frontend servers cleanly when you press `Ctrl+C` (on macOS/Linux) or `ENTER` / close the terminal window (on Windows).
 
 ## Manual Setup
 
@@ -43,7 +45,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 # The API key has been added to .env for you.
-python main.py
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 *The backend will automatically create `mockitv.db` and seed it with test data.*
 
@@ -56,5 +58,5 @@ npm run dev
 
 ## Tech Stack
 - **Frontend:** Next.js 15, React 19, Tailwind CSS v4, Framer Motion
-- **Backend:** FastAPI, SQLAlchemy, SQLite
+- **Backend:** FastAPI, SQLAlchemy, SQLite, Uvicorn
 - **AI Engine:** Google Gemini 2.0 Flash (Function Calling, Parallel Batching)
