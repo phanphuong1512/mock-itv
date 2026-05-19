@@ -14,6 +14,19 @@ echo.
 
 set ROOT_DIR=%~dp0
 
+REM ---- Port Cleanup ----
+echo 🧹 Checking and clearing ports 3000 and 8000...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :3000') do (
+    echo    Killing process on port 3000 (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>&1
+)
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :8000') do (
+    echo    Killing process on port 8000 (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>&1
+)
+echo ✅ Ports are clean.
+echo.
+
 REM ---- Backend Setup ----
 echo 📦 [Backend] Installing Python dependencies...
 cd /d "%ROOT_DIR%backend"
@@ -32,8 +45,8 @@ if not exist ".env" (
 )
 
 echo ✅ [Backend] Dependencies installed.
-echo 🚀 [Backend] Starting FastAPI server on port 8000...
-start /B python main.py
+echo 🚀 [Backend] Starting FastAPI server on port 8000 using Uvicorn...
+start /B python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 REM ---- Frontend Setup ----
 echo.
@@ -57,13 +70,26 @@ start http://localhost:3000
 
 echo.
 echo ╔══════════════════════════════════════════════╗
-echo ║  ✅ MockITV is running!                       ║
-echo ║  🌐 Frontend: http://localhost:3000            ║
-echo ║  🔌 Backend:  http://localhost:8000            ║
-echo ║  📖 API Docs: http://localhost:8000/docs       ║
-echo ║                                                ║
-echo ║  Close this window to stop all servers        ║
+echo ║  ✅ MockITV is running!                      ║
+echo ║  🌐 Frontend: http://localhost:3000          ║
+echo ║  🔌 Backend:  http://localhost:8000          ║
+echo ║  📖 API Docs: http://localhost:8000/docs     ║
+echo ║                                              ║
+echo ║  Press ENTER in this window to stop servers  ║
 echo ╚══════════════════════════════════════════════╝
 echo.
 
 pause
+
+REM ---- Cleanup on exit ----
+echo 🛑 Stopping all servers...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :3000') do (
+    echo    Stopping process on port 3000 (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>&1
+)
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr LISTENING ^| findstr :8000') do (
+    echo    Stopping process on port 8000 (PID: %%a)...
+    taskkill /F /PID %%a >nul 2>&1
+)
+echo 👋 Done! All servers stopped.
+
