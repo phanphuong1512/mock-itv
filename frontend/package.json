@@ -4,10 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npx @opennextjs/cloudflare build",
+    "build:next": "next build",
     "start": "next start",
     "lint": "eslint"
   },
+
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
     "framer-motion": "^12.38.0",

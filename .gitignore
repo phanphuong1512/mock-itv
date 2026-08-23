@@ -24,7 +24,9 @@ venv/
 # Node
 node_modules/
 .next/
+.open-next/
 out/
+
 
 # IDE
 .vscode/
