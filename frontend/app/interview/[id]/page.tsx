@@ -348,6 +348,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
 
   // --- Audio Analyzer & STT Engine ---
   const [audioLevel, setAudioLevel] = useState(0);
+  const [frequencies, setFrequencies] = useState<number[]>(new Array(16).fill(0));
   const [voiceTextInput, setVoiceTextInput] = useState('');
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -373,7 +374,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
       });
       mediaStreamRef.current = stream;
 
-      // 2. Setup real-time audio level visualizer
+      // 2. Setup real-time audio FFT frequency visualizer
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const audioCtx = new AudioCtx();
@@ -381,23 +382,35 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         const source = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 64;
+        analyser.smoothingTimeConstant = 0.6; // smooth physical wave motion
         source.connect(analyser);
         analyserRef.current = analyser;
 
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const NUM_BARS = 16;
+
         const checkAudio = () => {
           if (!isRecordingRef.current) return;
           analyser.getByteFrequencyData(dataArray);
-          let sum = 0;
-          for (let i = 0; i < dataArray.length; i++) {
-            sum += dataArray[i];
+
+          const sampledBars: number[] = [];
+          let totalVolume = 0;
+
+          // Extract human vocal frequencies (bins 1 to 24)
+          for (let i = 0; i < NUM_BARS; i++) {
+            const binIdx = Math.min(dataArray.length - 1, Math.floor((i / NUM_BARS) * (dataArray.length * 0.75)) + 1);
+            const val = dataArray[binIdx] || 0;
+            sampledBars.push(val);
+            totalVolume += val;
           }
-          const avg = sum / dataArray.length;
-          setAudioLevel(Math.min(100, Math.round(avg * 2.5)));
+
+          setFrequencies(sampledBars);
+          setAudioLevel(Math.min(100, Math.round(totalVolume / NUM_BARS)));
           animFrameRef.current = requestAnimationFrame(checkAudio);
         };
         checkAudio();
       }
+
 
       // 3. Initialize SpeechRecognition with full results concatenation
       const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
@@ -790,21 +803,26 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
 
-              {/* Sound Wave Indicator when recording */}
+              {/* Real Acoustic Frequency Visualizer when recording */}
               {isRecording && (
-                <div className="flex items-center justify-center gap-1.5 mt-4">
-                  {[...Array(11)].map((_, i) => (
-                    <span
-                      key={i}
-                      className="w-1 bg-emerald-400 rounded-full transition-all duration-75"
-                      style={{
-                        height: `${Math.max(4, Math.sin((i + 1) * 0.7) * (audioLevel * 0.35) + 6)}px`,
-                        opacity: audioLevel > 5 ? 1 : 0.4
-                      }}
-                    />
-                  ))}
+                <div className="flex items-center justify-center gap-1.5 mt-5 h-10 px-5 py-1.5 bg-[#151E32]/80 rounded-full border border-emerald-500/25 shadow-lg backdrop-blur-md">
+                  {frequencies.map((val, i) => {
+                    const barHeight = Math.max(4, Math.min(32, Math.round((val / 255) * 28) + 4));
+                    return (
+                      <span
+                        key={i}
+                        className="w-1 bg-gradient-to-t from-emerald-500 to-teal-300 rounded-full transition-all duration-75 ease-out"
+                        style={{
+                          height: `${barHeight}px`,
+                          opacity: val > 15 ? 1 : 0.35,
+                          boxShadow: val > 40 ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none'
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               )}
+
 
               <div className="max-w-xl w-full px-6 mt-5 space-y-3">
                 {/* AI Thinking indicator */}
