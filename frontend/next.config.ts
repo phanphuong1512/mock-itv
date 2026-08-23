@@ -1,14 +1,21 @@
 import type { NextConfig } from "next";
 
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  (process.env.NODE_ENV === "production"
+    ? "https://mock-itv-production.up.railway.app"
+    : "http://127.0.0.1:8000");
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8000/api/:path*",
+        destination: `${BACKEND_URL}/api/:path*`,
       },
     ];
   },
 };
 
 export default nextConfig;
+
