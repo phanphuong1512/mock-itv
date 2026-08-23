@@ -4,11 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx @opennextjs/cloudflare build",
-    "build:next": "next build",
+    "build": "next build",
+    "build:cf": "npx @opennextjs/cloudflare build",
     "start": "next start",
     "lint": "eslint"
   },
+
 
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
