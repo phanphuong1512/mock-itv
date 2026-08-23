@@ -399,57 +399,72 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         checkAudio();
       }
 
-      // 3. Initialize SpeechRecognition
+      // 3. Initialize SpeechRecognition with full results concatenation
       const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
       if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'vi-VN';
-        recognition.maxAlternatives = 1;
-
-        let accumulated = '';
-
-        recognition.onresult = (event: any) => {
-          let interim = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              accumulated += transcript + ' ';
-            } else {
-              interim += transcript;
-            }
-          }
-
-          const combined = (accumulated + interim).trim();
-          if (combined) {
-            recordedSpeechTextRef.current = combined;
-            setLiveTranscript(combined);
-            setVoiceTextInput(combined);
-          }
-        };
-
-        recognition.onerror = (event: any) => {
-          console.warn('[STT] SpeechRecognition event warning:', event.error);
-        };
-
-        recognition.onend = () => {
-          if (isRecordingRef.current) {
-            try {
-              recognition.start();
-            } catch (e) {
-              console.warn('[STT] Auto-restart note:', e);
-            }
-          }
-        };
-
         try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'vi-VN';
+          recognition.maxAlternatives = 1;
+
+          recognition.onstart = () => {
+            console.log('[STT] SpeechRecognition started successfully.');
+          };
+
+          recognition.onaudiostart = () => {
+            console.log('[STT] Audio capture started.');
+          };
+
+          recognition.onspeechstart = () => {
+            console.log('[STT] Speech detected by recognizer.');
+          };
+
+          recognition.onresult = (event: any) => {
+            let fullTranscript = '';
+            for (let i = 0; i < event.results.length; ++i) {
+              const item = event.results[i][0];
+              if (item && item.transcript) {
+                fullTranscript += (fullTranscript ? ' ' : '') + item.transcript.trim();
+              }
+            }
+
+            const cleaned = fullTranscript.trim();
+            console.log('[STT] onresult text:', cleaned);
+            if (cleaned) {
+              recordedSpeechTextRef.current = cleaned;
+              setLiveTranscript(cleaned);
+              setVoiceTextInput(cleaned);
+            }
+          };
+
+          recognition.onerror = (event: any) => {
+            console.warn('[STT] SpeechRecognition error event:', event.error, event.message);
+          };
+
+          recognition.onend = () => {
+            console.log('[STT] SpeechRecognition ended. isRecording:', isRecordingRef.current);
+            if (isRecordingRef.current) {
+              setTimeout(() => {
+                if (isRecordingRef.current) {
+                  try {
+                    recognition.start();
+                  } catch (e) {
+                    console.warn('[STT] Restart caught:', e);
+                  }
+                }
+              }, 150);
+            }
+          };
+
           recognition.start();
           speechRecognitionRef.current = recognition;
         } catch (e) {
-          console.error('[STT] recognition.start() error:', e);
+          console.error('[STT] Error initializing SpeechRecognition:', e);
         }
       }
+
     } catch (err: any) {
       console.error('[STT] getUserMedia error:', err);
       isRecordingRef.current = false;
