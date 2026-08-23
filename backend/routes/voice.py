@@ -2,7 +2,9 @@
 """API routes for voice interview — TTS + STT (WebSocket streaming) + conversational AI."""
 
 import json
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import sherpa_onnx
@@ -13,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from ai_service import text_to_speech, voice_interview_respond, voice_interview_respond_stream
 from database import get_db
-from models import MockSession
+from models import MockSession, User
+from routes.auth import get_optional_user
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
 
@@ -241,4 +244,55 @@ async def voice_message_stream(session_id: int, req: VoiceMessageRequest, db: Se
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.get("/check-limit")
+def check_voice_limit(current_user: Optional[User] = Depends(get_optional_user)):
+    """Check if the current user is allowed to perform a voice interview (free plan = 1 per 24h)."""
+    if not current_user:
+        return {"allowed": False, "reason": "login_required", "plan": "none", "hoursLeft": 0}
+
+    plan = current_user.plan or "free"
+    if plan in ("pro", "premium"):
+        return {"allowed": True, "plan": plan, "remainingSeconds": 0, "hoursLeft": 0}
+
+    # Free plan: 1 session per 24 hours
+    if not current_user.last_voice_session_at:
+        return {"allowed": True, "plan": "free", "remainingSeconds": 0, "hoursLeft": 0}
+
+    now = datetime.now(timezone.utc)
+    last_voice = current_user.last_voice_session_at
+    if last_voice.tzinfo is None:
+        last_voice = last_voice.replace(tzinfo=timezone.utc)
+
+    delta = now - last_voice
+    cooldown_seconds = 24 * 3600
+    if delta.total_seconds() < cooldown_seconds:
+        remaining_seconds = int(cooldown_seconds - delta.total_seconds())
+        hours_left = round(remaining_seconds / 3600, 1)
+        return {
+            "allowed": False,
+            "reason": "cooldown",
+            "plan": "free",
+            "remainingSeconds": remaining_seconds,
+            "hoursLeft": hours_left,
+            "lastVoiceAt": last_voice.isoformat(),
+        }
+
+    return {"allowed": True, "plan": "free", "remainingSeconds": 0, "hoursLeft": 0}
+
+
+@router.post("/record-usage")
+def record_voice_usage(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """Record that a voice session was started for cooldown tracking."""
+    if current_user:
+        current_user.last_voice_session_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(current_user)
+        return {"success": True, "lastVoiceSessionAt": current_user.last_voice_session_at.isoformat()}
+    return {"success": False}
+
 

@@ -4,11 +4,14 @@ import { useState, useEffect, useRef, use } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { 
-  Award, Building2, Clock, Layers, Zap, FileText, Upload, CheckCircle2, Play, Phone, Sparkles, ArrowLeft, Brain
+  Award, Building2, Clock, Layers, Zap, FileText, Upload, CheckCircle2, Play, Phone, Sparkles, ArrowLeft, Brain,
+  Lock, X, QrCode, Copy, CheckCheck, Loader2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/components/AuthProvider';
 import { JobResponse } from '@/types/api';
+
 
 const FUN_FACTS = [
   "Bạn có biết: 80% ứng viên cảm thấy tự tin hơn sau khi phỏng vấn thử với AI?",
@@ -38,10 +41,83 @@ const CATEGORIES = [
 export default function MockDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const { user, refreshUser } = useAuth();
   const [currentJob, setCurrentJob] = useState<JobResponse | null>(null);
 
   const [isStarting, setIsStarting] = useState(false);
   const [loadingFact, setLoadingFact] = useState(FUN_FACTS[0]);
+
+  // Voice Cooldown & Upgrade Modal State
+  const [voiceCooldownModal, setVoiceCooldownModal] = useState<{ hoursLeft: number; lastVoiceAt?: string } | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'completed' | 'failed'>('pending');
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const pollIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  const handleCreatePaymentOrder = async (planKey: 'pro' | 'premium') => {
+    try {
+      setLoadingPlan(planKey);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const res = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ plan: planKey }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Không thể tạo mã thanh toán');
+      }
+
+      const data = await res.json();
+      setPaymentInfo(data);
+      setPaymentStatus('pending');
+
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'completed') {
+              setPaymentStatus('completed');
+              clearInterval(pollIntervalRef.current);
+              await refreshUser();
+              setTimeout(() => {
+                setShowUpgradeModal(false);
+                setVoiceCooldownModal(null);
+                setPaymentInfo(null);
+                handleStartVoiceInterview();
+              }, 1800);
+            }
+          }
+        } catch (e) {
+          console.error('Error polling payment', e);
+        }
+      }, 2000);
+    } catch (err: any) {
+      alert(`⚠️ Lỗi khởi tạo thanh toán:\n${err.message || 'Vui lòng thử lại'}`);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   useEffect(() => {
     let interval: any;
@@ -105,9 +181,36 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleStartVoiceInterview = async () => {
     if (!currentJob) return;
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+
+    // Check 24h voice limit
+    try {
+      const checkRes = await fetch('/api/voice/check-limit', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        if (!checkData.allowed) {
+          if (checkData.reason === 'cooldown') {
+            setVoiceCooldownModal({
+              hoursLeft: checkData.hoursLeft || 24,
+              lastVoiceAt: checkData.lastVoiceAt
+            });
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Check voice limit error:", e);
+    }
+
     setIsStarting(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -126,6 +229,12 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
         throw new Error(errData.detail || "Lỗi khởi tạo phiên phỏng vấn từ AI");
       }
 
+      // Record voice usage for 24h cooldown tracking
+      fetch('/api/voice/record-usage', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      }).catch(() => {});
+
       const data = await response.json();
       if (data && data.id) {
         router.push(`/interview/${data.id}?mode=voice`);
@@ -138,6 +247,7 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
       setIsStarting(false);
     }
   };
+
 
 
   const getQuestionTagLabel = (index: number) => {
@@ -342,22 +452,31 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
 
                   <button
                     onClick={handleStartInterview}
-                    className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                   >
-                    Bắt đầu phỏng vấn
+                    Bắt đầu phỏng vấn text
                   </button>
 
                   <button
                     onClick={handleStartVoiceInterview}
-                    className="w-full py-3.5 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer relative"
                   >
                     <Phone className="w-4 h-4" />
-                    Phỏng vấn giọng nói
+                    <span>Phỏng vấn giọng nói</span>
+                    {(!user || user.plan === 'free') ? (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 ml-1">
+                        1 lần / 24h
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 ml-1">
+                        PRO
+                      </span>
+                    )}
                   </button>
 
                   <div className="pt-4 border-t border-white/5 w-full flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-bold">
                     <Sparkles className="w-4 h-4 fill-emerald-500/10" />
-                    PhuongPV Premium (Không giới hạn)
+                    {user?.plan === 'pro' || user?.plan === 'premium' ? 'Gói ' + user.plan.toUpperCase() + ' (Không giới hạn)' : 'Gói Miễn phí (1 lượt Voice/24h)'}
                   </div>
                 </div>
               </div>
@@ -366,7 +485,254 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
           )}
         </AnimatePresence>
       </div>
+
+      {/* ===== VOICE COOLDOWN MODAL ===== */}
+      <AnimatePresence>
+        {voiceCooldownModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md bg-card-bg border border-foreground/10 rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative text-center space-y-6"
+            >
+              <button
+                onClick={() => setVoiceCooldownModal(null)}
+                className="absolute top-6 right-6 p-2 rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground/70 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="w-16 h-16 bg-blue-500/10 text-blue-500 rounded-3xl flex items-center justify-center mx-auto border border-blue-500/20">
+                <Clock className="w-8 h-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-foreground">
+                  Đã dùng hết lượt Voice hôm nay
+                </h3>
+                <p className="text-xs text-foreground/70 leading-relaxed max-w-sm mx-auto">
+                  Gói Miễn phí được tặng <strong>1 lượt phỏng vấn giọng nói mỗi 24 giờ</strong>. Lượt miễn phí tiếp theo của bạn sẽ mở lại sau khoảng <strong>{voiceCooldownModal.hoursLeft} giờ</strong> nữa.
+                </p>
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-left flex items-start gap-2.5">
+                <Zap className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium leading-normal">
+                  Bạn vẫn có thể tiếp tục <strong>Phỏng vấn dạng Text không giới hạn</strong>, hoặc nâng cấp Pro để mở khóa Voice AI 24/7!
+                </p>
+              </div>
+
+              <div className="space-y-2.5 pt-2">
+                <button
+                  onClick={() => {
+                    setVoiceCooldownModal(null);
+                    setShowUpgradeModal(true);
+                  }}
+                  className="w-full py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-extrabold rounded-2xl text-xs transition-all shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Nâng cấp gói Pro (Chỉ 99k / Voice không giới hạn)
+                </button>
+
+                <button
+                  onClick={() => {
+                    setVoiceCooldownModal(null);
+                    handleStartInterview();
+                  }}
+                  className="w-full py-3 bg-foreground/5 hover:bg-foreground/10 text-foreground font-bold rounded-2xl text-xs transition-all cursor-pointer"
+                >
+                  Tiếp tục với Phỏng vấn Text (Miễn phí)
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ===== UPGRADE MODAL POPUP ===== */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg bg-card-bg border border-foreground/10 rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative overflow-hidden"
+            >
+              <button
+                onClick={() => {
+                  if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                  setShowUpgradeModal(false);
+                  setPaymentInfo(null);
+                }}
+                className="absolute top-6 right-6 p-2 rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground/70 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {paymentInfo ? (
+                paymentStatus === 'completed' ? (
+                  <div className="py-8 text-center space-y-5">
+                    <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-500/10">
+                      <CheckCheck className="w-10 h-10 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-foreground mb-1">
+                        Kích hoạt thành công! 🎉
+                      </h3>
+                      <p className="text-sm text-foreground/70">
+                        Đang chuẩn bị vào buổi phỏng vấn giọng nói của bạn...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="text-center mb-6">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold uppercase tracking-wider mb-2">
+                        <QrCode className="w-3.5 h-3.5" />
+                        VietQR SePay Thanh Toán Tự Động
+                      </div>
+                      <h3 className="text-xl font-extrabold text-foreground">
+                        Quét mã để nâng cấp gói {paymentInfo.bankInfo.planName}
+                      </h3>
+                      <p className="text-xs text-foreground/60 mt-1">
+                        Hệ thống tự động kích hoạt gói sau khi nhận chuyển khoản (1 - 3 giây)
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner mb-6">
+                      <img
+                        src={paymentInfo.qrUrl}
+                        alt="VietQR Payment"
+                        className="w-48 h-48 object-contain"
+                      />
+                      <span className="text-[11px] font-semibold text-slate-500 mt-1">
+                        Mở app ngân hàng bất kỳ để quét mã VietQR
+                      </span>
+                    </div>
+
+                    <div className="bg-foreground/5 rounded-2xl p-4 space-y-2 text-xs font-medium mb-6">
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Ngân hàng:</span>
+                        <span className="font-bold text-foreground">{paymentInfo.bankInfo.bankName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Chủ tài khoản:</span>
+                        <span className="font-bold text-foreground">{paymentInfo.bankInfo.accountName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Số tài khoản:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.accountNo, 'acc')}
+                          className="flex items-center gap-1 font-bold text-foreground hover:text-blue-500 transition-colors"
+                        >
+                          <span>{paymentInfo.bankInfo.accountNo}</span>
+                          {copiedField === 'acc' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Số tiền:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.amount.toString(), 'amount')}
+                          className="flex items-center gap-1 font-extrabold text-blue-500 hover:opacity-80 transition-opacity text-sm"
+                        >
+                          <span>{paymentInfo.bankInfo.amount.toLocaleString('vi-VN')} đ</span>
+                          {copiedField === 'amount' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-foreground/10">
+                        <span className="text-foreground/60">Nội dung chuyển khoản:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.orderCode, 'code')}
+                          className="flex items-center gap-1 font-mono font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded hover:bg-amber-500/20 transition-colors"
+                        >
+                          <span>{paymentInfo.bankInfo.orderCode}</span>
+                          {copiedField === 'code' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 text-xs text-foreground/70">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                      <span>Đang chờ xác nhận chuyển khoản từ SePay...</span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-500/20">
+                      <Zap className="w-7 h-7" />
+                    </div>
+                    <h3 className="text-2xl font-black text-foreground">
+                      Nâng cấp Gói để mở khóa Voice AI
+                    </h3>
+                    <p className="text-xs text-foreground/60 mt-1 max-w-sm mx-auto leading-relaxed">
+                      Luyện phản xạ phỏng vấn bằng giọng nói tương tác thời gian thực không giới hạn với AI.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    <div
+                      onClick={() => handleCreatePaymentOrder('pro')}
+                      className="p-4 rounded-2xl border-2 border-blue-500/40 hover:border-blue-500 bg-blue-500/5 hover:bg-blue-500/10 transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground">Gói Pro (Phổ biến)</span>
+                          <span className="text-[10px] font-bold uppercase bg-blue-500 text-white px-2 py-0.5 rounded-full">99.000đ/tháng</span>
+                        </div>
+                        <p className="text-xs text-foreground/60 mt-1">25 lượt mock, Voice AI không giới hạn, Custom CV/JD</p>
+                      </div>
+                      <button
+                        disabled={loadingPlan === 'pro'}
+                        className="px-4 py-2 bg-blue-500 text-white text-xs font-bold rounded-xl group-hover:bg-blue-600 transition-colors shrink-0"
+                      >
+                        {loadingPlan === 'pro' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chọn gói'}
+                      </button>
+                    </div>
+
+                    <div
+                      onClick={() => handleCreatePaymentOrder('premium')}
+                      className="p-4 rounded-2xl border border-amber-500/30 hover:border-amber-500 bg-amber-500/5 hover:bg-amber-500/10 transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground">Gói Premium VIP</span>
+                          <span className="text-[10px] font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">199.000đ/tháng</span>
+                        </div>
+                        <p className="text-xs text-foreground/60 mt-1">100 lượt mock, Ưu tiên server AI cao nhất 24/7</p>
+                      </div>
+                      <button
+                        disabled={loadingPlan === 'premium'}
+                        className="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl group-hover:bg-amber-600 transition-colors shrink-0"
+                      >
+                        {loadingPlan === 'premium' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chọn gói'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-center pt-2 border-t border-foreground/10">
+                    <button
+                      onClick={() => {
+                        setShowUpgradeModal(false);
+                        router.push('/pricing');
+                      }}
+                      className="text-xs text-blue-500 hover:underline font-semibold cursor-pointer"
+                    >
+                      Xem chi tiết bảng so sánh tính năng đầy đủ →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <Footer />
     </main>
   );
 }
+

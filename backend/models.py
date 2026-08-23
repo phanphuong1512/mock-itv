@@ -20,6 +20,7 @@ class User(Base):
     plan = Column(String(50), default="free")  # free, pro, premium
     credits = Column(Integer, default=4)
     plan_expired_at = Column(DateTime, nullable=True)
+    last_voice_session_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     sessions = relationship("MockSession", back_populates="user", cascade="all, delete-orphan")
@@ -36,8 +37,10 @@ class User(Base):
             "plan": self.plan or "free",
             "credits": self.credits or 0,
             "planExpiredAt": self.plan_expired_at.isoformat() if self.plan_expired_at else None,
+            "lastVoiceSessionAt": self.last_voice_session_at.isoformat() if self.last_voice_session_at else None,
             "createdAt": self.created_at.isoformat() if self.created_at else "",
         }
+
 
 
 class PaymentTransaction(Base):
