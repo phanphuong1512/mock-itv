@@ -15,14 +15,15 @@ def list_jobs(
     level: str = Query(None, description="Filter by level (Intern, Fresher, etc.)"),
     db: Session = Depends(get_db),
 ):
-    """Get all mock job positions, optionally filtered."""
-    query = db.query(MockJob)
+    """Get all mock job positions, optionally filtered (excluding internal custom mock job)."""
+    query = db.query(MockJob).filter(MockJob.id != 999, MockJob.category != "custom")
     if category and category != "all":
         query = query.filter(MockJob.category == category)
     if level and level not in ("Tất cả", "all"):
         query = query.filter(MockJob.level == level)
     jobs = query.all()
     return [job.to_dict() for job in jobs]
+
 
 
 @router.get("/{job_id}")

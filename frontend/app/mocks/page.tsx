@@ -66,10 +66,12 @@ export default function MocksPage() {
   }, []);
 
   const filteredJobs = jobs.filter(job => {
+    if (job.id === 999 || job.category === 'custom' || job.title?.toLowerCase().includes('custom') || job.title?.toLowerCase().includes('tùy chỉnh')) return false;
     const matchCategory = activeCategory === 'all' || job.category === activeCategory;
     const matchLevel = activeLevel === 'Tất cả' || job.level === activeLevel;
     return matchCategory && matchLevel;
   });
+
 
   return (
     <main className="min-h-screen bg-background text-foreground font-sans selection:bg-blue-500/30 flex flex-col">

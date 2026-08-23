@@ -9,11 +9,14 @@ import {
   Database, LineChart, Brain, Shield, CheckCircle, Cpu, Link as LinkIcon,
   Gamepad2, Building2, Briefcase, MapPin, Clock, ArrowRight,
   ArrowLeft, Play, Zap, Award, Sparkles, CheckCircle2,
-  Mic, MicOff, Volume2, Square, Phone, FileText, Upload
+  Mic, MicOff, Volume2, Square, Phone, FileText, Upload,
+  Lock, Copy, CheckCheck, Loader2, X, QrCode
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/components/AuthProvider';
 import { JobResponse, MockSessionResponse, SessionQuestionResponse } from '@/types/api';
+
 
 const CATEGORIES = [
   { id: 'all', label: 'Tất cả', icon: null },
@@ -55,6 +58,30 @@ export default function CustomMockPage() {
   const [cvFileName, setCvFileName] = useState('');
   const [cvFileUploading, setCvFileUploading] = useState(false);
   const cvFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auth & Upgrade Modal State
+  const { user, refreshUser } = useAuth();
+  const isProOrPremium = Boolean(user && (user.plan === 'pro' || user.plan === 'premium'));
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'completed' | 'failed'>('pending');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [pendingMode, setPendingMode] = useState<'text' | 'voice'>('text');
+  const pollIntervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, []);
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
 
   // Text interview state
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
@@ -473,22 +500,95 @@ export default function CustomMockPage() {
     }
   };
 
+  const handleCreatePaymentOrder = async (planKey: 'pro' | 'premium') => {
+    try {
+      setLoadingPlan(planKey);
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const res = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ plan: planKey }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Không thể tạo mã thanh toán');
+      }
+
+      const data = await res.json();
+      setPaymentInfo(data);
+      setPaymentStatus('pending');
+
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'completed') {
+              setPaymentStatus('completed');
+              clearInterval(pollIntervalRef.current);
+              await refreshUser();
+              setTimeout(() => {
+                setShowUpgradeModal(false);
+                setPaymentInfo(null);
+                startActualCustomInterview(pendingMode);
+              }, 1800);
+            }
+          }
+        } catch (e) {
+          console.error('Error polling payment', e);
+        }
+      }, 2000);
+    } catch (err: any) {
+      alert(`⚠️ Lỗi khởi tạo thanh toán:\n${err.message || 'Vui lòng thử lại'}`);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const handleStartCustomInterview = async (mode: 'text' | 'voice' = 'text') => {
     if (!customFile) {
       alert('Vui lòng upload file CV hoặc JD.');
       return;
     }
+
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    if (!isProOrPremium) {
+      setPendingMode(mode);
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    startActualCustomInterview(mode);
+  };
+
+  const startActualCustomInterview = async (mode: 'text' | 'voice' = 'text') => {
     setView('loading');
     setLoadingStepText('Đang phân tích file bằng Pinecone Vector DB và sinh câu hỏi...');
 
     const formData = new FormData();
-    formData.append('file', customFile);
+    formData.append('file', customFile!);
     formData.append('type', customMockType);
     formData.append('questions_count', customQuestionCount.toString());
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/sessions/custom-mock', {
         method: 'POST',
+        headers,
         body: formData,
       });
       const data = await response.json();
@@ -507,6 +607,7 @@ export default function CustomMockPage() {
       setView('custom-setup');
     }
   };
+
 
   const handleStartInterview = async () => {
     if (!selectedJobId) return;
@@ -1352,19 +1453,37 @@ export default function CustomMockPage() {
                   <button 
                     onClick={() => handleStartCustomInterview('text')}
                     disabled={!customFile}
-                    className="flex items-center justify-center gap-2 px-8 py-4 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl transition-all shadow-lg"
+                    className={`flex items-center justify-center gap-2 px-8 py-4 font-extrabold rounded-2xl transition-all shadow-lg cursor-pointer ${
+                      !isProOrPremium
+                        ? 'bg-blue-600/85 hover:bg-blue-600 text-white border border-amber-400/40 opacity-90 hover:opacity-100 hover:scale-[1.01]'
+                        : 'bg-blue-500 hover:bg-blue-600 text-white'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
-                    Bắt đầu phỏng vấn text
+                    {!isProOrPremium && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-black mr-1">
+                        <Lock className="w-3 h-3 text-amber-400" /> PRO
+                      </span>
+                    )}
+                    <span>Bắt đầu phỏng vấn text</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
 
                   <button 
                     onClick={() => handleStartCustomInterview('voice')}
                     disabled={!customFile}
-                    className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-2xl transition-all shadow-lg"
+                    className={`flex items-center justify-center gap-2 px-8 py-4 font-extrabold rounded-2xl transition-all shadow-lg cursor-pointer ${
+                      !isProOrPremium
+                        ? 'bg-gradient-to-r from-indigo-600/85 to-purple-600/85 hover:from-indigo-600 hover:to-purple-600 text-white border border-amber-400/40 opacity-90 hover:opacity-100 hover:scale-[1.01]'
+                        : 'bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
+                    {!isProOrPremium && (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-black mr-1">
+                        <Lock className="w-3 h-3 text-amber-400" /> PRO
+                      </span>
+                    )}
                     <Phone className="w-5 h-5" />
-                    Phỏng vấn giọng nói
+                    <span>Phỏng vấn giọng nói</span>
                   </button>
                 </div>
               </div>
@@ -1416,6 +1535,196 @@ export default function CustomMockPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ===== UPGRADE MODAL POPUP ===== */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-lg bg-card-bg border border-foreground/10 rounded-[2.5rem] shadow-2xl p-6 sm:p-8 relative overflow-hidden"
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => {
+                  if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                  setShowUpgradeModal(false);
+                  setPaymentInfo(null);
+                }}
+                className="absolute top-6 right-6 p-2 rounded-full bg-foreground/5 hover:bg-foreground/10 text-foreground/70 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {paymentInfo ? (
+                paymentStatus === 'completed' ? (
+                  /* Success State */
+                  <div className="py-8 text-center space-y-5">
+                    <div className="w-20 h-20 bg-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-500/10">
+                      <CheckCheck className="w-10 h-10 stroke-[2.5]" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-extrabold text-foreground mb-1">
+                        Kích hoạt thành công! 🎉
+                      </h3>
+                      <p className="text-sm text-foreground/70">
+                        Đang tự động khởi tạo buổi phỏng vấn cho hồ sơ của bạn...
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  /* Payment Pending State */
+                  <div>
+                    <div className="text-center mb-6">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-bold uppercase tracking-wider mb-2">
+                        <QrCode className="w-3.5 h-3.5" />
+                        VietQR SePay Thanh Toán Tự Động
+                      </div>
+                      <h3 className="text-xl font-extrabold text-foreground">
+                        Quét mã để nâng cấp gói {paymentInfo.bankInfo.planName}
+                      </h3>
+                      <p className="text-xs text-foreground/60 mt-1">
+                        Hệ thống tự động kích hoạt gói sau khi nhận chuyển khoản (1 - 3 giây)
+                      </p>
+                    </div>
+
+                    {/* QR Code Container */}
+                    <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-inner mb-6">
+                      <img
+                        src={paymentInfo.qrUrl}
+                        alt="VietQR Payment"
+                        className="w-48 h-48 object-contain"
+                      />
+                      <span className="text-[11px] font-semibold text-slate-500 mt-1">
+                        Mở app ngân hàng bất kỳ để quét mã VietQR
+                      </span>
+                    </div>
+
+                    {/* Transfer Details */}
+                    <div className="bg-foreground/5 rounded-2xl p-4 space-y-2 text-xs font-medium mb-6">
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Ngân hàng:</span>
+                        <span className="font-bold text-foreground">{paymentInfo.bankInfo.bankName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Chủ tài khoản:</span>
+                        <span className="font-bold text-foreground">{paymentInfo.bankInfo.accountName}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Số tài khoản:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.accountNo, 'acc')}
+                          className="flex items-center gap-1 font-bold text-foreground hover:text-blue-500 transition-colors"
+                        >
+                          <span>{paymentInfo.bankInfo.accountNo}</span>
+                          {copiedField === 'acc' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-foreground/60">Số tiền:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.amount.toString(), 'amount')}
+                          className="flex items-center gap-1 font-extrabold text-blue-500 hover:opacity-80 transition-opacity text-sm"
+                        >
+                          <span>{paymentInfo.bankInfo.amount.toLocaleString('vi-VN')} đ</span>
+                          {copiedField === 'amount' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5 opacity-60" />}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-foreground/10">
+                        <span className="text-foreground/60">Nội dung chuyển khoản:</span>
+                        <button
+                          onClick={() => handleCopy(paymentInfo.bankInfo.orderCode, 'code')}
+                          className="flex items-center gap-1 font-mono font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded hover:bg-amber-500/20 transition-colors"
+                        >
+                          <span>{paymentInfo.bankInfo.orderCode}</span>
+                          {copiedField === 'code' ? <CheckCheck className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 text-xs text-foreground/70">
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                      <span>Đang chờ xác nhận chuyển khoản từ SePay...</span>
+                    </div>
+                  </div>
+                )
+              ) : (
+                /* Plan Selection State */
+                <div>
+                  <div className="text-center mb-6">
+                    <div className="w-14 h-14 bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-3 border border-amber-500/20">
+                      <Lock className="w-7 h-7" />
+                    </div>
+                    <h3 className="text-2xl font-black text-foreground">
+                      Mở khóa Phỏng vấn Tùy chỉnh
+                    </h3>
+                    <p className="text-xs text-foreground/60 mt-1 max-w-sm mx-auto leading-relaxed">
+                      Tính năng phân tích CV/JD bằng AI Vector DB chuyên sâu dành riêng cho thành viên gói <strong>Pro</strong> và <strong>Premium</strong>.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3 mb-6">
+                    {/* Option Pro */}
+                    <div
+                      onClick={() => handleCreatePaymentOrder('pro')}
+                      className="p-4 rounded-2xl border-2 border-blue-500/40 hover:border-blue-500 bg-blue-500/5 hover:bg-blue-500/10 transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground">Gói Pro (Phổ biến)</span>
+                          <span className="text-[10px] font-bold uppercase bg-blue-500 text-white px-2 py-0.5 rounded-full">99.000đ/tháng</span>
+                        </div>
+                        <p className="text-xs text-foreground/60 mt-1">25 lượt phỏng vấn AI, Full Voice AI, Custom Mock CV/JD</p>
+                      </div>
+                      <button
+                        disabled={loadingPlan === 'pro'}
+                        className="px-4 py-2 bg-blue-500 text-white text-xs font-bold rounded-xl group-hover:bg-blue-600 transition-colors shrink-0"
+                      >
+                        {loadingPlan === 'pro' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chọn gói'}
+                      </button>
+                    </div>
+
+                    {/* Option Premium */}
+                    <div
+                      onClick={() => handleCreatePaymentOrder('premium')}
+                      className="p-4 rounded-2xl border border-amber-500/30 hover:border-amber-500 bg-amber-500/5 hover:bg-amber-500/10 transition-all cursor-pointer flex items-center justify-between group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-foreground">Gói Premium VIP</span>
+                          <span className="text-[10px] font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">199.000đ/tháng</span>
+                        </div>
+                        <p className="text-xs text-foreground/60 mt-1">100 lượt phỏng vấn, Hàng đợi ưu tiên tối đa 24/7</p>
+                      </div>
+                      <button
+                        disabled={loadingPlan === 'premium'}
+                        className="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl group-hover:bg-amber-600 transition-colors shrink-0"
+                      >
+                        {loadingPlan === 'premium' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Chọn gói'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-center pt-2 border-t border-foreground/10">
+                    <button
+                      onClick={() => {
+                        setShowUpgradeModal(false);
+                        router.push('/pricing');
+                      }}
+                      className="text-xs text-blue-500 hover:underline font-semibold cursor-pointer"
+                    >
+                      Xem chi tiết bảng so sánh tính năng đầy đủ →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
 
       <Footer />
     </main>
