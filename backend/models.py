@@ -22,8 +22,9 @@ class User(Base):
     plan_expired_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    sessions = relationship("MockSession", back_populates="user")
-    transactions = relationship("PaymentTransaction", back_populates="user")
+    sessions = relationship("MockSession", back_populates="user", cascade="all, delete-orphan")
+    transactions = relationship("PaymentTransaction", back_populates="user", cascade="all, delete-orphan")
+
 
     def to_dict(self) -> dict:
         return {

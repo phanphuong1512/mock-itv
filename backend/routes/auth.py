@@ -156,6 +156,8 @@ def login_with_google(req: GoogleLoginRequest, db: Session = Depends(get_db)):
             name=name,
             avatar_url=picture,
             google_id=google_id,
+            plan="free",
+            credits=4,
         )
         db.add(user)
 

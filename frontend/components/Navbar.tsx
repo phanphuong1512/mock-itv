@@ -103,8 +103,23 @@ export default function Navbar() {
             {menuOpen && (
               <div className="absolute right-0 mt-2 w-64 bg-card-bg border border-foreground/10 rounded-2xl shadow-2xl p-2.5 z-50 text-foreground animate-in fade-in slide-in-from-top-2 duration-150">
                 <div className="px-3.5 py-3 border-b border-foreground/10 mb-1">
-                  <p className="text-sm font-bold truncate">{user.name}</p>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-sm font-bold truncate">{user.name}</p>
+                    <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
+                      (user.plan || 'free') === 'premium'
+                        ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30'
+                        : (user.plan || 'free') === 'pro'
+                        ? 'bg-blue-500/20 text-blue-500 border border-blue-500/30'
+                        : 'bg-foreground/10 text-foreground/60'
+                    }`}>
+                      {user.plan === 'premium' ? 'Premium VIP' : user.plan === 'pro' ? 'Pro' : 'Miễn phí'}
+                    </span>
+                  </div>
                   <p className="text-xs text-foreground/60 truncate">{user.email}</p>
+                  <div className="mt-2 pt-2 border-t border-foreground/5 flex items-center justify-between text-xs">
+                    <span className="text-foreground/60">Lượt mock còn lại:</span>
+                    <span className="font-bold text-blue-500">{user.credits ?? 4} lượt</span>
+                  </div>
                 </div>
 
                 <Link
@@ -125,7 +140,17 @@ export default function Navbar() {
                   Custom Mock cá nhân
                 </Link>
 
+                <Link
+                  href="/pricing"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-xl hover:bg-foreground/5 text-blue-500 font-semibold transition-colors"
+                >
+                  <Zap className="w-4 h-4 text-blue-500" />
+                  Nâng cấp gói dịch vụ
+                </Link>
+
                 <div className="my-1 border-t border-foreground/10" />
+
 
                 <button
                   onClick={() => {
