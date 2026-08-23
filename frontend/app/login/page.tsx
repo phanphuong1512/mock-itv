@@ -99,18 +99,21 @@ export default function LoginPage() {
                 <span>Đang xác thực tài khoản Google...</span>
               </div>
             ) : (
-              <div className="w-full flex justify-center scale-105">
-                <GoogleLogin
-                  onSuccess={handleGoogleSuccess}
-                  onError={() => setError('Google Sign-In gặp lỗi kết nối')}
-                  useOneTap={false}
-                  theme="filled_blue"
-                  shape="pill"
-                  size="large"
-                  text="continue_with"
-                />
+              <div className="w-full flex justify-center">
+                <div className="rounded-full overflow-hidden flex items-center justify-center shadow-lg hover:shadow-blue-500/25 transition-all bg-transparent">
+                  <GoogleLogin
+                    onSuccess={handleGoogleSuccess}
+                    onError={() => setError('Google Sign-In gặp lỗi kết nối')}
+                    useOneTap={false}
+                    theme="filled_blue"
+                    shape="pill"
+                    size="large"
+                    text="continue_with"
+                  />
+                </div>
               </div>
             )}
+
           </div>
 
           <p className="text-center text-xs text-foreground/50 leading-relaxed">

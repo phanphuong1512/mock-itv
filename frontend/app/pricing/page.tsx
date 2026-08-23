@@ -143,9 +143,9 @@ export default function PricingPage() {
       
       {/* ===== HERO SECTION ===== */}
       <section className="pt-28 pb-8 px-6 lg:px-12 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-500 text-xs font-semibold mb-4">
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>Tự động kích hoạt gói tức thì qua SePay VietQR</span>
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-gradient-to-r from-red-500/20 via-amber-500/20 to-orange-500/20 border border-amber-500/40 text-amber-500 dark:text-amber-350 text-xs sm:text-sm font-black mb-4 animate-pulse shadow-lg">
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <span>🔥 SIÊU ƯU ĐÃI GIẢM 80% (ÁP DỤNG DUY NHẤT CHO 20 TÀI KHOẢN ĐẦU TIÊN)</span>
         </div>
         <h1 className="text-4xl lg:text-5xl font-extrabold mb-6 tracking-tight">
           {t('pricing.title')}
@@ -175,8 +175,8 @@ export default function PricingPage() {
               <FeatureItem text="Sàng lọc & Phân tích CV" included={true} />
               <FeatureItem text="Chấm điểm đa chiều" included={true} />
               <FeatureItem text="Lịch sử phỏng vấn" included={true} />
-              <FeatureItem text="Phỏng vấn giọng nói (Voice AI)" included={false} />
-              <FeatureItem text="Custom Mock theo JD/CV không giới hạn" included={false} />
+              <FeatureItem text="Phỏng vấn giọng nói (Tặng 1 lần/24h)" included={true} />
+              <FeatureItem text="Custom Mock theo JD/CV riêng" included={false} />
               <FeatureItem text="Ưu tiên hàng đợi AI" included={false} />
             </ul>
             
@@ -188,24 +188,25 @@ export default function PricingPage() {
             </button>
           </div>
 
-          {/* Card 2 - Pro (Highlighted) */}
+          {/* Card 2 - Pro (Highlighted with 80% Sale) */}
           <div className="bg-card-bg rounded-[2rem] p-6 border-2 border-blue-500 relative flex flex-col h-full shadow-[0_0_40px_rgba(37,99,235,0.2)] transform lg:-translate-y-4">
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-blue-500 text-white text-[10px] font-bold rounded-full tracking-widest uppercase">
-              {t('pricing.popular')}
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-red-500 to-amber-500 text-white text-[10px] font-black rounded-full tracking-wider uppercase shadow-md flex items-center gap-1">
+              🔥 GIẢM 80% • CHỈ 20 SUẤT ĐẦU
             </div>
             
             <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center mb-6 shadow-lg shadow-blue-500/30">
               <Zap className="w-6 h-6 text-white" />
             </div>
             <h3 className="text-2xl font-bold mb-1">Pro</h3>
-            <div className="flex items-end gap-1 mb-2">
-              <span className="text-4xl font-extrabold">99k</span>
-              <span className="text-sm text-foreground/60 mb-1">/tháng</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-4xl font-black text-blue-500">99k</span>
+              <span className="text-base text-foreground/40 line-through font-semibold">499k</span>
+              <span className="text-sm text-foreground/60 font-medium">/tháng</span>
             </div>
-            <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10">25 lượt luyện tập / tháng</p>
+            <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10 font-medium">30 lượt luyện tập / tháng (Tiết kiệm 80%)</p>
             
             <ul className="space-y-3 mb-6 flex-1">
-              <FeatureItem text="25 Phỏng vấn AI chuẩn quốc tế" included={true} blueIcon={true} />
+              <FeatureItem text="30 Phỏng vấn AI chuẩn quốc tế" included={true} blueIcon={true} />
               <FeatureItem text="Phỏng vấn bằng Giọng nói (Voice AI)" included={true} blueIcon={true} />
               <FeatureItem text="Custom Mock theo CV & JD riêng" included={true} blueIcon={true} />
               <FeatureItem text="Chấm điểm chuyên môn & soft skills" included={true} blueIcon={true} />
@@ -232,17 +233,22 @@ export default function PricingPage() {
             </button>
           </div>
 
-          {/* Card 3 - Premium */}
-          <div className="bg-card-bg rounded-[2rem] p-6 border border-foreground/10 flex flex-col h-full">
+          {/* Card 3 - Premium VIP (With 80% Sale) */}
+          <div className="bg-card-bg rounded-[2rem] p-6 border border-amber-500/40 relative flex flex-col h-full">
+            <div className="absolute -top-3.5 right-6 px-3 py-0.5 bg-amber-500/20 border border-amber-500/30 text-amber-500 dark:text-amber-350 text-[10px] font-black rounded-full uppercase tracking-wider">
+              🔥 TIẾT KIỆM 80%
+            </div>
+
             <div className="w-12 h-12 bg-amber-500/10 rounded-xl flex items-center justify-center mb-6">
               <UserCircle2 className="w-6 h-6 text-amber-500" />
             </div>
             <h3 className="text-2xl font-bold mb-1">Premium VIP</h3>
-            <div className="flex items-end gap-1 mb-2">
-              <span className="text-4xl font-extrabold">199k</span>
-              <span className="text-sm text-foreground/60 mb-1">/tháng</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-4xl font-black text-amber-500">199k</span>
+              <span className="text-base text-foreground/40 line-through font-semibold">999k</span>
+              <span className="text-sm text-foreground/60 font-medium">/tháng</span>
             </div>
-            <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10">100 lượt luyện tập không giới hạn</p>
+            <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10 font-medium">100 lượt luyện tập (Tiết kiệm 80%)</p>
             
             <ul className="space-y-3 mb-6 flex-1">
               <FeatureItem text="100 Lượt phỏng vấn toàn diện" included={true} blueIcon={true} />
@@ -274,6 +280,7 @@ export default function PricingPage() {
 
         </div>
       </section>
+
 
       {/* ===== SEPAY VIETQR PAYMENT MODAL ===== */}
       <AnimatePresence>

@@ -28,7 +28,7 @@ PLAN_PRICING = {
     "pro": {
         "name": "Pro",
         "amount": 99000,
-        "credits": 25,
+        "credits": 30,
         "duration_days": 30,
     },
     "premium": {
@@ -38,6 +38,7 @@ PLAN_PRICING = {
         "duration_days": 30,
     }
 }
+
 
 
 class CreateOrderRequest(BaseModel):

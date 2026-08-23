@@ -1674,9 +1674,9 @@ export default function CustomMockPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-foreground">Gói Pro (Phổ biến)</span>
-                          <span className="text-[10px] font-bold uppercase bg-blue-500 text-white px-2 py-0.5 rounded-full">99.000đ/tháng</span>
+                          <span className="text-[10px] font-black uppercase bg-gradient-to-r from-red-500 to-amber-500 text-white px-2 py-0.5 rounded-full">🔥 Giảm 80%: 99k</span>
                         </div>
-                        <p className="text-xs text-foreground/60 mt-1">25 lượt phỏng vấn AI, Full Voice AI, Custom Mock CV/JD</p>
+                        <p className="text-xs text-foreground/60 mt-1">30 lượt phỏng vấn AI, Full Voice AI, Custom Mock CV/JD</p>
                       </div>
                       <button
                         disabled={loadingPlan === 'pro'}
@@ -1694,7 +1694,7 @@ export default function CustomMockPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-extrabold text-foreground">Gói Premium VIP</span>
-                          <span className="text-[10px] font-bold uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">199.000đ/tháng</span>
+                          <span className="text-[10px] font-black uppercase bg-amber-500 text-slate-950 px-2 py-0.5 rounded-full">🔥 Giảm 80%: 199k</span>
                         </div>
                         <p className="text-xs text-foreground/60 mt-1">100 lượt phỏng vấn, Hàng đợi ưu tiên tối đa 24/7</p>
                       </div>
@@ -1706,6 +1706,7 @@ export default function CustomMockPage() {
                       </button>
                     </div>
                   </div>
+
 
                   <div className="text-center pt-2 border-t border-foreground/10">
                     <button
