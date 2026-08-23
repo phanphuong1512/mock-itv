@@ -279,55 +279,76 @@ export default function CustomMockPage() {
     }
   }, [playTTS]);
 
+  const speechRecognitionRef = useRef<any>(null);
+  const recordedSpeechTextRef = useRef<string>('');
+
   const startRecording = useCallback(() => {
     isRecordingRef.current = true;
     setIsRecording(true);
     setLiveTranscript('');
+    recordedSpeechTextRef.current = '';
 
-    navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } })
+    const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+
+    if (SpeechRecognition) {
+      try {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'vi-VN';
+
+        recognition.onresult = (event: any) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = 0; i < event.results.length; ++i) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' ';
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          const combined = (finalTranscript + interimTranscript).trim();
+          if (combined) {
+            recordedSpeechTextRef.current = combined;
+            setLiveTranscript(combined);
+          }
+        };
+
+        recognition.onerror = (event: any) => {
+          console.warn('[STT] SpeechRecognition event:', event.error);
+          if (event.error === 'not-allowed') {
+            alert('Không thể truy cập microphone. Vui lòng cấp quyền micro trên trình duyệt.');
+            isRecordingRef.current = false;
+            setIsRecording(false);
+          }
+        };
+
+        recognition.onend = () => {
+          if (isRecordingRef.current) {
+            try { recognition.start(); } catch {}
+          }
+        };
+
+        recognition.start();
+        speechRecognitionRef.current = recognition;
+        return;
+      } catch (err) {
+        console.error('[STT] SpeechRecognition error in custom-mock:', err);
+      }
+    }
+
+    navigator.mediaDevices.getUserMedia({ audio: true })
       .then(stream => {
-        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const sampleRate = audioCtx.sampleRate;
-        const source = audioCtx.createMediaStreamSource(stream);
-        const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${wsProtocol}//${window.location.host}/api/voice/ws-stt`;
-        const ws = new WebSocket(wsUrl);
-        let wsReady = false;
-
-        ws.onopen = () => { wsReady = true; };
-        ws.onmessage = (event) => {
-          try {
-            const msg = JSON.parse(event.data);
-            if (msg.partial) setLiveTranscript(msg.partial);
-            if (msg.final) setLiveTranscript(msg.final);
-          } catch {}
-        };
-        ws.onerror = () => { wsReady = false; };
-
-        processor.onaudioprocess = (e) => {
-          if (!isRecordingRef.current) return;
-          if (!wsReady) return;
-          const data = e.inputBuffer.getChannelData(0);
-          const header = new Uint8Array(4);
-          new DataView(header.buffer).setUint32(0, sampleRate, true);
-          const pcm = new Uint8Array(data.buffer.slice(0));
-          const chunk = new Uint8Array(header.length + pcm.length);
-          chunk.set(header, 0);
-          chunk.set(pcm, 4);
-          ws.send(chunk.buffer);
-        };
-
-        source.connect(processor);
-        processor.connect(audioCtx.destination);
-
-        (recognitionRef as any).current = { stream, audioCtx, processor, ws };
+        (recognitionRef as any).current = stream;
+        setLiveTranscript('Đang lắng nghe câu trả lời của bạn...');
       })
       .catch(() => {
         isRecordingRef.current = false;
         setIsRecording(false);
-        alert('Không thể truy cập microphone. Vui lòng cấp quyền mic.');
+        alert('Không thể truy cập microphone. Vui lòng cấp quyền micro.');
       });
   }, []);
 
@@ -335,42 +356,26 @@ export default function CustomMockPage() {
     isRecordingRef.current = false;
     setIsRecording(false);
 
-    const refs = (recognitionRef as any).current;
-    if (!refs) return;
+    if (speechRecognitionRef.current) {
+      try { speechRecognitionRef.current.stop(); } catch {}
+      speechRecognitionRef.current = null;
+    }
 
-    const { stream, audioCtx, processor, ws } = refs;
-    processor.disconnect();
-    stream.getTracks().forEach((t: any) => t.stop());
-    audioCtx.close();
-    (recognitionRef as any).current = null;
+    if (recognitionRef.current && (recognitionRef.current as any).getTracks) {
+      try { (recognitionRef.current as any).getTracks().forEach((t: any) => t.stop()); } catch {}
+      recognitionRef.current = null;
+    }
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.onmessage = (event: any) => {
-        try {
-          const msg = JSON.parse(event.data);
-          const text = (msg.final || msg.partial || '').trim();
-          if (text && voiceSessionId) {
-            setLiveTranscript('');
-            setVoiceMessages(prev => [...prev, { role: 'user', content: text }]);
-            sendVoiceMessage(text, voiceSessionId);
-          } else if (!text) {
-            setLiveTranscript('Không nhận dạng được. Hãy thử lại.');
-            setTimeout(() => setLiveTranscript(''), 2000);
-          }
-        } catch {}
-      };
-      ws.send('END');
+    const currentText = (recordedSpeechTextRef.current || liveTranscript).trim();
+    if (currentText && currentText !== 'Đang lắng nghe câu trả lời của bạn...' && voiceSessionId) {
+      setLiveTranscript('');
+      setVoiceMessages(prev => [...prev, { role: 'user', content: currentText }]);
+      sendVoiceMessage(currentText, voiceSessionId);
     } else {
-      const currentText = liveTranscript.trim();
-      if (currentText && voiceSessionId) {
-        setLiveTranscript('');
-        setVoiceMessages(prev => [...prev, { role: 'user', content: currentText }]);
-        sendVoiceMessage(currentText, voiceSessionId);
-      } else {
-        setLiveTranscript('');
-      }
+      setLiveTranscript('');
     }
   }, [voiceSessionId, sendVoiceMessage, liveTranscript]);
+
 
   const handleStartVoiceInterview = async () => {
     if (!selectedJobId) return;
