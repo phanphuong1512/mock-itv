@@ -350,42 +350,22 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
   const [audioLevel, setAudioLevel] = useState(0);
   const [frequencies, setFrequencies] = useState<number[]>(new Array(16).fill(0));
   const [voiceTextInput, setVoiceTextInput] = useState('');
-  const [sttDebug, setSttDebug] = useState<string[]>([]);
+  const speechRecognitionRef = useRef<any>(null);
+  const recordedSpeechTextRef = useRef<string>('');
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const speechRecognitionRef = useRef<any>(null);
-  const recordedSpeechTextRef = useRef<string>('');
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const addDebug = useCallback((msg: string) => {
-    const ts = new Date().toLocaleTimeString('vi-VN', { hour12: false });
-    setSttDebug(prev => [...prev.slice(-12), `[${ts}] ${msg}`]);
-  }, []);
 
   const startRecording = useCallback(async () => {
     isRecordingRef.current = true;
     setIsRecording(true);
     setLiveTranscript('');
     recordedSpeechTextRef.current = '';
-    setSttDebug([]);
 
-    // Check browser support
-    const SpeechRecognitionClass = typeof window !== 'undefined' 
-      ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) 
-      : null;
-    
-    addDebug(`Browser: ${navigator.userAgent.slice(0, 80)}`);
-    addDebug(`SpeechRecognition API: ${SpeechRecognitionClass ? '✅ Có' : '❌ Không có'}`);
-
-    if (!SpeechRecognitionClass) {
-      addDebug('❌ Trình duyệt KHÔNG hỗ trợ Web Speech API. Cần Chrome/Edge/Safari.');
-      return;
-    }
 
     try {
-      // 1. Request mic
-      addDebug('🎤 Đang xin quyền mic...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: true, 
@@ -394,15 +374,12 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         } 
       });
       mediaStreamRef.current = stream;
-      const tracks = stream.getAudioTracks();
-      addDebug(`✅ Mic OK: ${tracks[0]?.label || 'unknown'} (${tracks[0]?.readyState})`);
 
-      // 2. Setup real-time audio FFT frequency visualizer
+      // Setup real-time audio FFT frequency visualizer
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioCtx) {
         const audioCtx = new AudioCtx();
         audioContextRef.current = audioCtx;
-        addDebug(`AudioContext state: ${audioCtx.state}, sampleRate: ${audioCtx.sampleRate}`);
         const source = audioCtx.createMediaStreamSource(stream);
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 64;
@@ -434,84 +411,53 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         checkAudio();
       }
 
-      // 3. Initialize SpeechRecognition
-      addDebug('🔄 Đang khởi tạo SpeechRecognition...');
-      try {
-        const recognition = new SpeechRecognitionClass();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'vi-VN';
-        recognition.maxAlternatives = 1;
+      // Setup SpeechRecognition for real-time live typing on Chrome
+      const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+      if (SpeechRecognition) {
+        try {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = 'vi-VN';
+          recognition.maxAlternatives = 1;
 
-        recognition.onstart = () => {
-          addDebug('✅ EVENT: onstart — Nhận diện giọng nói đã khởi động');
-        };
-
-        recognition.onaudiostart = () => {
-          addDebug('✅ EVENT: onaudiostart — Đang thu âm vào bộ nhận diện');
-        };
-
-        recognition.onspeechstart = () => {
-          addDebug('✅ EVENT: onspeechstart — Phát hiện giọng nói!');
-        };
-
-        recognition.onspeechend = () => {
-          addDebug('ℹ️ EVENT: onspeechend — Ngừng phát hiện giọng nói');
-        };
-
-        recognition.onaudioend = () => {
-          addDebug('ℹ️ EVENT: onaudioend — Kết thúc thu âm');
-        };
-
-        recognition.onnomatch = () => {
-          addDebug('⚠️ EVENT: onnomatch — Không nhận dạng được giọng nói');
-        };
-
-        recognition.onresult = (event: any) => {
-          let fullTranscript = '';
-          for (let i = 0; i < event.results.length; ++i) {
-            const item = event.results[i][0];
-            if (item && item.transcript) {
-              fullTranscript += (fullTranscript ? ' ' : '') + item.transcript.trim();
-            }
-          }
-
-          const cleaned = fullTranscript.trim();
-          addDebug(`📝 EVENT: onresult — "${cleaned.slice(0, 50)}${cleaned.length > 50 ? '...' : ''}"`);
-          if (cleaned) {
-            recordedSpeechTextRef.current = cleaned;
-            setLiveTranscript(cleaned);
-            setVoiceTextInput(cleaned);
-          }
-        };
-
-        recognition.onerror = (event: any) => {
-          addDebug(`❌ EVENT: onerror — error="${event.error}" message="${event.message || 'N/A'}"`);
-        };
-
-        recognition.onend = () => {
-          addDebug(`ℹ️ EVENT: onend — isRecording=${isRecordingRef.current}`);
-          if (isRecordingRef.current) {
-            setTimeout(() => {
-              if (isRecordingRef.current) {
-                try {
-                  recognition.start();
-                  addDebug('🔄 Auto-restart thành công');
-                } catch (e: any) {
-                  addDebug(`❌ Auto-restart thất bại: ${e.message}`);
-                }
+          recognition.onresult = (event: any) => {
+            let fullTranscript = '';
+            for (let i = 0; i < event.results.length; ++i) {
+              const item = event.results[i][0];
+              if (item && item.transcript) {
+                fullTranscript += (fullTranscript ? ' ' : '') + item.transcript.trim();
               }
-            }, 200);
-          }
-        };
+            }
 
-        recognition.start();
-        speechRecognitionRef.current = recognition;
-        addDebug('✅ recognition.start() gọi thành công. Đang chờ sự kiện...');
-      } catch (e: any) {
-        addDebug(`❌ Lỗi khởi tạo SpeechRecognition: ${e.message}`);
+            const cleaned = fullTranscript.trim();
+            if (cleaned) {
+              recordedSpeechTextRef.current = cleaned;
+              setLiveTranscript(cleaned);
+              setVoiceTextInput(cleaned);
+            }
+          };
+
+          recognition.onerror = (event: any) => {
+            console.warn('[STT] SpeechRecognition event:', event.error);
+          };
+
+          recognition.onend = () => {
+            if (isRecordingRef.current) {
+              setTimeout(() => {
+                if (isRecordingRef.current) {
+                  try { recognition.start(); } catch {}
+                }
+              }, 150);
+            }
+          };
+
+          recognition.start();
+          speechRecognitionRef.current = recognition;
+        } catch (e) {
+          console.warn('[STT] SpeechRecognition init error:', e);
+        }
       }
-
 
     } catch (err: any) {
       console.error('[STT] getUserMedia error:', err);
@@ -521,7 +467,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     }
   }, []);
 
-  const stopRecording = useCallback(() => {
+  const stopRecording = useCallback(async () => {
     isRecordingRef.current = false;
     setIsRecording(false);
     setAudioLevel(0);
@@ -558,6 +504,8 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
       setLiveTranscript('');
     }
   }, [sendVoiceMessage, liveTranscript, voiceTextInput]);
+
+
 
 
 
@@ -859,25 +807,7 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
               )}
 
 
-              {/* 🔧 STT Debug Panel — visible on screen */}
-              {isRecording && sttDebug.length > 0 && (
-                <div className="max-w-xl w-full px-6 mt-3">
-                  <div className="bg-slate-900/90 border border-amber-500/40 rounded-xl p-3 text-[10px] font-mono leading-relaxed max-h-48 overflow-y-auto">
-                    <p className="text-amber-400 font-bold text-xs mb-1.5">🔧 STT Debug Log (tạm thời)</p>
-                    {sttDebug.map((line, idx) => (
-                      <p key={idx} className={`${
-                        line.includes('❌') ? 'text-red-400' :
-                        line.includes('✅') ? 'text-emerald-400' :
-                        line.includes('📝') ? 'text-cyan-300' :
-                        line.includes('⚠️') ? 'text-amber-400' :
-                        'text-slate-400'
-                      }`}>
-                        {line}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
               <div className="max-w-xl w-full px-6 mt-5 space-y-3">
                 {/* AI Thinking indicator */}

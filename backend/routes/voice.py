@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""API routes for voice interview — TTS + STT (WebSocket streaming) + conversational AI."""
+"""API routes for voice interview — TTS + STT (Groq Whisper) + conversational AI."""
 
 import json
+import os
+import tempfile
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
-import sherpa_onnx
-from fastapi import APIRouter, Depends, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -19,35 +19,6 @@ from models import MockSession, User
 from routes.auth import get_optional_user
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
-
-# ============================================================
-# SHERPA-ONNX STREAMING RECOGNIZER (singleton)
-# ============================================================
-
-_recognizer = None
-
-
-def _get_recognizer():
-    global _recognizer
-    if _recognizer is None:
-        base = Path(__file__).resolve().parent.parent / "models" / "sherpa-onnx-streaming-zipformer-ar_en_id_ja_ru_th_vi_zh-2025-02-10"
-        _recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(
-            tokens=str(base / "tokens.txt"),
-            encoder=str(base / "encoder-epoch-75-avg-11-chunk-16-left-128.int8.onnx"),
-            decoder=str(base / "decoder-epoch-75-avg-11-chunk-16-left-128.onnx"),
-            joiner=str(base / "joiner-epoch-75-avg-11-chunk-16-left-128.int8.onnx"),
-            num_threads=2,
-            sample_rate=16000,
-            feature_dim=80,
-            enable_endpoint_detection=True,
-            rule1_min_trailing_silence=2.4,
-            rule2_min_trailing_silence=1.2,
-            rule3_min_utterance_length=300,
-            decoding_method="greedy_search",
-            provider="cpu",
-        )
-    return _recognizer
-
 
 # ============================================================
 # SCHEMAS
@@ -82,94 +53,66 @@ async def tts_endpoint(req: TTSRequest):
 
 
 @router.post("/stt")
-async def stt_endpoint(request: Request):
-    """Receive raw PCM float32 audio at given sample rate, transcribe with sherpa-onnx."""
-    body = await request.body()
-    if len(body) < 100:
+async def stt_endpoint(file: UploadFile = File(...), language: str = Form("vi")):
+    """Receive audio file, transcribe with Groq Whisper API."""
+    import httpx
+
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured on server")
+
+    audio_data = await file.read()
+    if len(audio_data) < 100:
         raise HTTPException(status_code=400, detail="Audio too short")
 
-    # Header: first 4 bytes = sample rate as uint32 LE, rest = float32 PCM
-    sample_rate = int.from_bytes(body[:4], byteorder="little")
-    pcm_bytes = body[4:]
+    # Determine file extension from content type
+    ext = ".webm"
+    if file.content_type:
+        if "wav" in file.content_type:
+            ext = ".wav"
+        elif "mp3" in file.content_type or "mpeg" in file.content_type:
+            ext = ".mp3"
+        elif "ogg" in file.content_type:
+            ext = ".ogg"
+        elif "mp4" in file.content_type or "m4a" in file.content_type:
+            ext = ".m4a"
 
-    samples = np.frombuffer(pcm_bytes, dtype=np.float32)
-
-    if len(samples) < 1600:
-        raise HTTPException(status_code=400, detail="Audio too short")
-
-    recognizer = _get_recognizer()
-    stream = recognizer.create_stream()
-    stream.accept_waveform(sample_rate, samples)
-
-    # Add tail padding and signal end
-    tail_padding = np.zeros(int(sample_rate * 0.5), dtype=np.float32)
-    stream.accept_waveform(sample_rate, tail_padding)
-    stream.input_finished()
-
-    while recognizer.is_ready(stream):
-        recognizer.decode_stream(stream)
-
-    text = recognizer.get_result(stream).strip()
-
-    return {"text": text}
-
-
-@router.websocket("/ws-stt")
-async def ws_stt(websocket: WebSocket):
-    """WebSocket streaming STT — receives PCM chunks, returns partial results in real-time."""
-    await websocket.accept()
-
-    recognizer = _get_recognizer()
-    stream = recognizer.create_stream()
-    sample_rate = 48000  # will be overridden by first message
-    last_text = ""
+    # Write to temp file (Groq API needs file upload)
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tmp:
+        tmp.write(audio_data)
+        tmp_path = tmp.name
 
     try:
-        while True:
-            message = await websocket.receive()
+        async with httpx.AsyncClient(timeout=30) as client:
+            with open(tmp_path, "rb") as f:
+                resp = await client.post(
+                    "https://api.groq.com/openai/v1/audio/transcriptions",
+                    headers={"Authorization": f"Bearer {groq_key}"},
+                    files={"file": (f"audio{ext}", f, file.content_type or "audio/webm")},
+                    data={
+                        "model": "whisper-large-v3-turbo",
+                        "language": language,
+                        "response_format": "json",
+                    },
+                )
 
-            # Text message "END" signals client is done speaking
-            if "text" in message:
-                if message["text"] == "END":
-                    break
-                continue
+        if resp.status_code != 200:
+            print(f"[STT] Groq Whisper error {resp.status_code}: {resp.text[:300]}")
+            raise HTTPException(status_code=502, detail=f"Groq Whisper error: {resp.text[:200]}")
 
-            data = message.get("bytes", b"")
+        result = resp.json()
+        text = result.get("text", "").strip()
+        print(f"[STT] Groq transcribed: '{text[:100]}'")
+        return {"text": text}
 
-            # First 4 bytes of every chunk = sample rate, rest = float32 PCM
-            if len(data) <= 4:
-                continue
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
 
-            sample_rate = int.from_bytes(data[:4], byteorder="little")
-            samples = np.frombuffer(data[4:], dtype=np.float32)
 
-            stream.accept_waveform(sample_rate, samples)
 
-            while recognizer.is_ready(stream):
-                recognizer.decode_stream(stream)
-
-            text = recognizer.get_result(stream).strip()
-            if text and text != last_text:
-                last_text = text
-                await websocket.send_json({"partial": text})
-
-    except WebSocketDisconnect:
-        return
-    except Exception:
-        return
-
-    # Finalize — client sent "END", connection still open
-    try:
-        tail_padding = np.zeros(int(sample_rate * 0.3), dtype=np.float32)
-        stream.accept_waveform(sample_rate, tail_padding)
-        stream.input_finished()
-        while recognizer.is_ready(stream):
-            recognizer.decode_stream(stream)
-        final_text = recognizer.get_result(stream).strip()
-        await websocket.send_json({"final": final_text or last_text})
-        await websocket.close()
-    except Exception:
-        pass
 
 
 @router.post("/sessions/{session_id}/message")

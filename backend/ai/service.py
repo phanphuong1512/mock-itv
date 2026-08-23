@@ -227,9 +227,17 @@ async def voice_interview_respond(position: str, level: str, tech_stack: list[st
         return "Xin lỗi, đường truyền của tôi đang gặp vấn đề. Bạn có thể nhắc lại không?"
 
 
-import re as _re
-
-_SENTENCE_END = _re.compile(r'[.!?।]+[\s]*')
+def _clean_spoken_text(text: str) -> str:
+    """Strip any JSON reasoning objects, thought tags, or stage markers before yielding to user/TTS."""
+    # Remove any JSON object like {"reasoning": ..., "next_action": ...}
+    text = _re.sub(r'\{[^{}]*\}', '', text)
+    # Remove any nested JSON-like structure
+    text = _re.sub(r'\{.*?"next_action".*?\}', '', text, flags=_re.DOTALL)
+    # Remove thought tags
+    text = _re.sub(r'<think>.*?</think>', '', text, flags=_re.DOTALL)
+    # Remove leading brackets
+    text = _re.sub(r'^\[.*?\]\s*', '', text)
+    return text.strip()
 
 
 async def voice_interview_respond_stream(
@@ -259,8 +267,10 @@ async def voice_interview_respond_stream(
 
     buffer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
-        if event["event"] == "on_chat_model_stream" and event["name"] != "analyzer":
-            chunk = event["data"]["chunk"]
+        # ONLY capture tokens from the interviewer node, NEVER from analyzer node
+        node_name = event.get("metadata", {}).get("langgraph_node")
+        if event.get("event") == "on_chat_model_stream" and node_name == "interviewer":
+            chunk = event.get("data", {}).get("chunk")
             token = getattr(chunk, "content", "") or ""
             if not token:
                 continue
@@ -273,13 +283,15 @@ async def voice_interview_respond_stream(
                 end_pos = match.end()
                 sentence = buffer[:end_pos].strip()
                 buffer = buffer[end_pos:]
-                if sentence:
-                    yield sentence
+                cleaned_sentence = _clean_spoken_text(sentence)
+                if cleaned_sentence:
+                    yield cleaned_sentence
 
     # Yield any remaining text
-    leftover = buffer.strip()
+    leftover = _clean_spoken_text(buffer.strip())
     if leftover:
         yield leftover
+
 
 
 # ── Text to Speech ───────────────────────────────────────────
