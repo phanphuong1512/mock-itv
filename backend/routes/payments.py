@@ -27,17 +27,18 @@ SEPAY_WEBHOOK_SECRET = os.getenv("SEPAY_WEBHOOK_SECRET", "whsec_18BJLJSI358Ym3dh
 PLAN_PRICING = {
     "pro": {
         "name": "Pro",
-        "amount": 99000,
+        "amount": 19000,
         "credits": 30,
         "duration_days": 30,
     },
     "premium": {
         "name": "Premium",
-        "amount": 199000,
+        "amount": 39000,
         "credits": 100,
         "duration_days": 30,
     }
 }
+
 
 
 

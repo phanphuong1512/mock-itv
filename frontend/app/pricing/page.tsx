@@ -199,8 +199,8 @@ export default function PricingPage() {
             </div>
             <h3 className="text-2xl font-bold mb-1">Pro</h3>
             <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-4xl font-black text-blue-500">99k</span>
-              <span className="text-base text-foreground/40 line-through font-semibold">499k</span>
+              <span className="text-4xl font-black text-blue-500">19k</span>
+              <span className="text-base text-foreground/40 line-through font-semibold">99k</span>
               <span className="text-sm text-foreground/60 font-medium">/tháng</span>
             </div>
             <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10 font-medium">30 lượt luyện tập / tháng (Tiết kiệm 80%)</p>
@@ -228,7 +228,7 @@ export default function PricingPage() {
               ) : isCurrentPlan('pro') ? (
                 <span>Đang sử dụng gói Pro</span>
               ) : (
-                <span>Nâng cấp lên Pro (99.000đ)</span>
+                <span>Nâng cấp lên Pro (19.000đ)</span>
               )}
             </button>
           </div>
@@ -244,8 +244,8 @@ export default function PricingPage() {
             </div>
             <h3 className="text-2xl font-bold mb-1">Premium VIP</h3>
             <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-4xl font-black text-amber-500">199k</span>
-              <span className="text-base text-foreground/40 line-through font-semibold">999k</span>
+              <span className="text-4xl font-black text-amber-500">39k</span>
+              <span className="text-base text-foreground/40 line-through font-semibold">199k</span>
               <span className="text-sm text-foreground/60 font-medium">/tháng</span>
             </div>
             <p className="text-sm text-foreground/60 mb-6 pb-6 border-b border-foreground/10 font-medium">100 lượt luyện tập (Tiết kiệm 80%)</p>
@@ -273,10 +273,11 @@ export default function PricingPage() {
               ) : isCurrentPlan('premium') ? (
                 <span>Đang sử dụng gói Premium</span>
               ) : (
-                <span>Nâng cấp Premium (199.000đ)</span>
+                <span>Nâng cấp Premium (39.000đ)</span>
               )}
             </button>
           </div>
+
 
         </div>
       </section>
