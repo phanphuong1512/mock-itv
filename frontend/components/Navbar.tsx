@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Sparkles, Sun, Moon, LogOut, User as UserIcon, ChevronDown, History } from 'lucide-react';
+import { Sparkles, Sun, Moon, LogOut, User as UserIcon, ChevronDown, History, Zap } from 'lucide-react';
+
 import { useLanguage } from './LanguageProvider';
 import { useTheme } from 'next-themes';
 import { useEffect, useState, useRef } from 'react';
