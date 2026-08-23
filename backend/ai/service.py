@@ -54,13 +54,11 @@ def analyze_candidate_cv(
 
 # ── Config Singleton ─────────────────────────────────────────
 
-_cfg: Optional[AIConfig] = None
-
 def _get_cfg() -> AIConfig:
-    global _cfg
-    if _cfg is None:
-        _cfg = load_config()
-    return _cfg
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    return load_config()
+
 
 
 # ── CV Analysis ──────────────────────────────────────────────
@@ -167,7 +165,7 @@ async def generate_questions(
         parsed = parse_generate_questions_args(args)
         return [q.model_dump() for q in parsed.questions]
 
-    return [{"question_text": "Không thể kết nối AI để tạo câu hỏi. Vui lòng thử lại.", "tag": "technical"}]
+    raise ValueError("AI không phản hồi danh sách câu hỏi theo đúng định dạng.")
 
 
 async def generate_custom_questions(
@@ -177,11 +175,8 @@ async def generate_custom_questions(
 ) -> list[dict]:
     """Generate custom interview questions using RAG from Pinecone."""
     from .graphs.crag_graph import run_crag_graph
-    try:
-        return await run_crag_graph(namespace, mock_type, count)
-    except Exception as e:
-        print(f"[AI] ⚠️ generate_custom_questions failed: {e}")
-        return [{"question_text": "Lỗi kết nối AI khi tạo câu hỏi tuỳ chỉnh. Vui lòng thử lại.", "tag": "technical"}]
+    return await run_crag_graph(namespace, mock_type, count)
+
 
 
 # ── Batch Evaluate Session ───────────────────────────────────

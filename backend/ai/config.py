@@ -13,6 +13,9 @@ class AIConfig:
     verbatim_fix_retries: int = 2
 
 def load_config() -> AIConfig:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+
     api_key = os.getenv("OPENAI_API_KEY", "")
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not set.")

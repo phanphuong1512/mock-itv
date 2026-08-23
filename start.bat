@@ -58,7 +58,7 @@ echo ⏳ [Backend] Checking and downloading AI model if needed...
 python download_model.py
 echo 🚀 [Backend] Starting FastAPI server on port 8000 using Uvicorn...
 
-start "MockITV Backend" cmd /k "cd /d %ROOT_DIR%backend && call venv\Scripts\activate.bat && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+start "MockITV Backend" cmd /k "cd /d %ROOT_DIR%backend && call venv\Scripts\activate.bat && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude "*.db*" --reload-exclude "models/*" --reload-exclude "venv/*" --reload-exclude "*.log""
 
 echo.
 

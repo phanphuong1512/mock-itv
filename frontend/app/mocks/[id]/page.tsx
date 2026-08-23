@@ -71,22 +71,34 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
     if (!currentJob) return;
     setIsStarting(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const body: any = { job_id: currentJob.id, questions_count: currentJob.rounds || 7 };
 
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body)
       });
+      
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || "Lỗi khởi tạo phiên phỏng vấn từ AI");
+      }
+
       const data = await response.json();
       if (data && data.id) {
         router.push(`/interview/${data.id}`);
       } else {
-        throw new Error("Invalid session created");
+        throw new Error("Không nhận được mã phiên phỏng vấn hợp lệ");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start session", err);
-      alert("Đã xảy ra lỗi khi tạo session. Vui lòng thử lại.");
+      alert(`⚠️ Lỗi khởi động phỏng vấn:\n${err.message || 'Vui lòng kiểm tra lại kết nối AI.'}`);
       setIsStarting(false);
     }
   };
@@ -95,25 +107,38 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
     if (!currentJob) return;
     setIsStarting(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const body: any = { job_id: currentJob.id, questions_count: currentJob.rounds || 7 };
 
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body)
       });
+      
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || "Lỗi khởi tạo phiên phỏng vấn từ AI");
+      }
+
       const data = await response.json();
       if (data && data.id) {
         router.push(`/interview/${data.id}?mode=voice`);
       } else {
-        throw new Error("Invalid session created");
+        throw new Error("Không nhận được mã phiên phỏng vấn hợp lệ");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start session", err);
-      alert("Đã xảy ra lỗi khi tạo session. Vui lòng thử lại.");
+      alert(`⚠️ Lỗi khởi động phỏng vấn:\n${err.message || 'Vui lòng kiểm tra lại kết nối AI.'}`);
       setIsStarting(false);
     }
   };
+
 
   const getQuestionTagLabel = (index: number) => {
     if (index === 2) return "problem-solving";

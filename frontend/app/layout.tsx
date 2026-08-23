@@ -3,6 +3,7 @@ import { Lexend } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
+import { AuthProvider } from "@/components/AuthProvider";
 
 const lexend = Lexend({
   variable: "--font-lexend",
@@ -32,9 +33,12 @@ export default function RootLayout({
           defaultTheme="dark"
           enableSystem={false}
         >
-          <LanguageProvider>{children}</LanguageProvider>
+          <AuthProvider>
+            <LanguageProvider>{children}</LanguageProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
+

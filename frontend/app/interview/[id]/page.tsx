@@ -63,7 +63,10 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
   // Fetch session data
   useEffect(() => {
     fetch(`/api/sessions/${sessionId}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error("Không tìm thấy session.");
+        return res.json();
+      })
       .then((data: MockSessionResponse) => {
         setSession(data);
         if (data.questions && data.questions.length > 0) {
@@ -75,13 +78,18 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
           } else {
             setView('interview');
           }
+        } else {
+          alert("Phiên phỏng vấn không có câu hỏi hợp lệ. Đang chuyển về trang danh sách mock.");
+          router.push('/mocks');
         }
       })
       .catch(err => {
         console.error("Failed to fetch session", err);
-        alert("Không thể tải dữ liệu session.");
+        alert("Không thể tải dữ liệu phiên phỏng vấn.");
+        router.push('/mocks');
       });
-  }, [sessionId, mode]);
+  }, [sessionId, mode, router]);
+
 
   // Cleanup on unmount
   useEffect(() => {

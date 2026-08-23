@@ -29,6 +29,7 @@ from seed_data import seed_database
 from routes.jobs import router as jobs_router
 from routes.sessions import router as sessions_router
 from routes.voice import router as voice_router
+from routes.auth import router as auth_router
 
 
 app = FastAPI(
@@ -47,9 +48,11 @@ app.add_middleware(
 )
 
 # Register routes
+app.include_router(auth_router)
 app.include_router(jobs_router)
 app.include_router(sessions_router)
 app.include_router(voice_router)
+
 
 
 # Custom JSON response with UTF-8
@@ -92,6 +95,7 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8000,
         reload=True,
+        reload_excludes=["*.db*", "*.db-wal", "*.db-shm", "models/*", "venv/*", "*.log"],
         log_level="info",
     )
-# Auto-reloaded database cleanly
+

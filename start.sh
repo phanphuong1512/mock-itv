@@ -4,8 +4,6 @@
 # Usage: chmod +x start.sh && ./start.sh
 # ============================================================
 
-# Exit immediately if a command exits with a non-zero status,
-# but we will handle process cleaning manually.
 set -e
 
 echo ""
@@ -16,14 +14,25 @@ echo "╚═══════════════════════�
 echo ""
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "$ROOT_DIR/logs"
 
 # Initialize PID variables
 BACKEND_PID=""
 FRONTEND_PID=""
 
+# ---- Port Killer Helper ----
+kill_port() {
+    local port=$1
+    local pids=$(lsof -ti :$port 2>/dev/null || true)
+    if [ -n "$pids" ]; then
+        echo "   Port $port is in use. Killing process(es): $(echo $pids | tr '\n' ' ')..."
+        echo "$pids" | xargs kill -9 2>/dev/null || true
+        sleep 0.5
+    fi
+}
+
 # ---- Cleanup Function ----
 cleanup() {
-    # Disable trap to avoid recursion
     trap - INT TERM HUP EXIT
     
     echo ""
@@ -31,22 +40,19 @@ cleanup() {
     
     if [ -n "$BACKEND_PID" ]; then
         echo "   Stopping backend server (PID: $BACKEND_PID)..."
+        pkill -P "$BACKEND_PID" 2>/dev/null || true
         kill "$BACKEND_PID" 2>/dev/null || true
     fi
     
     if [ -n "$FRONTEND_PID" ]; then
         echo "   Stopping frontend server (PID: $FRONTEND_PID)..."
+        pkill -P "$FRONTEND_PID" 2>/dev/null || true
         kill "$FRONTEND_PID" 2>/dev/null || true
     fi
     
     # Force clean ports just in case processes are still hanging
-    for port in 3000 8000; do
-        pid=$(lsof -t -i:$port 2>/dev/null || true)
-        if [ -n "$pid" ]; then
-            echo "   Force-killing remaining process on port $port (PID: $pid)..."
-            kill -9 $pid 2>/dev/null || true
-        fi
-    done
+    kill_port 3000
+    kill_port 8000
     
     echo "👋 All servers stopped successfully."
     exit 0
@@ -57,19 +63,13 @@ trap cleanup INT TERM HUP
 
 # ---- Port Cleanup ----
 echo "🧹 Checking and clearing ports 3000 and 8000..."
-for port in 3000 8000; do
-    pid=$(lsof -t -i:$port 2>/dev/null || true)
-    if [ -n "$pid" ]; then
-        echo "   Port $port is in use. Killing process $pid..."
-        kill -9 $pid 2>/dev/null || true
-        sleep 0.5
-    fi
-done
+kill_port 3000
+kill_port 8000
 echo "✅ Ports are clean."
 echo ""
 
 # ---- Backend Setup ----
-echo "📦 [Backend] Installing Python dependencies..."
+echo "📦 [Backend] Checking Python dependencies..."
 cd "$ROOT_DIR/backend"
 
 if [ ! -d "venv" ]; then
@@ -91,13 +91,18 @@ echo "✅ [Backend] Dependencies installed."
 echo "⏳ [Backend] Checking and downloading AI model if needed..."
 python download_model.py
 echo "🚀 [Backend] Starting FastAPI server on port 8000 using Uvicorn..."
-# Run using python -m uvicorn to ensure using virtual environment's uvicorn
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload > >(tee "$ROOT_DIR/logs/backend.log") 2>&1 &
+# Run uvicorn with reload excludes to prevent SQLite/model write reload loop
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload \
+    --reload-exclude "*.db*" \
+    --reload-exclude "models/*" \
+    --reload-exclude "venv/*" \
+    --reload-exclude "*.log" \
+    > "$ROOT_DIR/logs/backend.log" 2>&1 &
 BACKEND_PID=$!
 
 # ---- Frontend Setup ----
 echo ""
-echo "📦 [Frontend] Installing Node.js dependencies..."
+echo "📦 [Frontend] Checking Node.js dependencies..."
 cd "$ROOT_DIR/frontend"
 
 if [ ! -d "node_modules" ]; then
@@ -106,7 +111,7 @@ fi
 
 echo "✅ [Frontend] Dependencies ready."
 echo "🚀 [Frontend] Starting Next.js dev server on port 3000..."
-npm run dev > >(tee "$ROOT_DIR/logs/frontend.log") 2>&1 &
+npm run dev > "$ROOT_DIR/logs/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 
 # ---- Wait & Open Browser ----

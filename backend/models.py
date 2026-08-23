@@ -8,6 +8,30 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+class User(Base):
+    """A registered user authenticated via Google OAuth."""
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    avatar_url = Column(String(500), default="")
+    google_id = Column(String(255), unique=True, index=True, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    sessions = relationship("MockSession", back_populates="user")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "avatarUrl": self.avatar_url,
+            "googleId": self.google_id,
+            "createdAt": self.created_at.isoformat() if self.created_at else "",
+        }
+
+
 class MockJob(Base):
     """A mock interview job position."""
     __tablename__ = "mock_jobs"
@@ -52,7 +76,9 @@ class MockSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     job_id = Column(Integer, ForeignKey("mock_jobs.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     status = Column(String(20), default="in_progress")  # in_progress, completed
+
     overall_score = Column(Integer, default=0)
     technical_score = Column(Integer, default=0)
     communication_score = Column(Integer, default=0)
@@ -65,7 +91,9 @@ class MockSession(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     job = relationship("MockJob", back_populates="sessions")
+    user = relationship("User", back_populates="sessions")
     questions = relationship("SessionQuestion", back_populates="session", order_by="SessionQuestion.question_order")
+
 
     def to_dict(self, include_questions: bool = False) -> dict:
         job = self.job

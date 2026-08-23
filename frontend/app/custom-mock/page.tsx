@@ -517,13 +517,24 @@ export default function CustomMockPage() {
       const body: any = { job_id: selectedJobId, questions_count: currentJob?.rounds || 7 };
       if (cvText.trim()) body.cv_text = cvText.trim();
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body)
       });
-      const data = await response.json();
-      if (data && data.id) {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.detail || "Không thể khởi tạo session (lỗi server AI).");
+      }
+
+
+      if (data && data.id && Array.isArray(data.questions) && data.questions.length > 0) {
         setCurrentSessionId(data.id);
         setSessionQuestions(data.questions || []);
         setCurrentQuestionIndex(0);
@@ -531,32 +542,17 @@ export default function CustomMockPage() {
         setInterviewTimer(0);
         setView('interview');
       } else {
-        throw new Error("Invalid session created");
+        throw new Error("Không nhận được danh sách câu hỏi hợp lệ từ AI.");
       }
-    } catch (err) {
-      console.warn("[Interview] API start failed, using high-fidelity fallback questions.", err);
-      // Fallback questions if backend API fails
-      const fallbackQuestions = Array.from({ length: currentJob?.rounds || 7 }).map((_, idx) => ({
-        id: idx + 1,
-        questionOrder: idx + 1,
-        tag: idx === 2 ? 'problem-solving' : idx === 4 ? 'behavioral' : 'technical',
-        questionText: idx === 0 
-          ? `Hãy giới thiệu bản thân và nêu bật một dự án nổi bật nhất liên quan đến ${currentJob?.techStack.slice(0, 2).join(', ') || 'công nghệ chính'} mà bạn từng làm.`
-          : idx === 1
-          ? `Hãy giải thích chi tiết cơ chế hoạt động, ưu & nhược điểm của việc ứng dụng ${currentJob?.techStack[0] || 'công nghệ của bạn'} trong hệ thống thực tế.`
-          : idx === 2
-          ? `Với vị trí ${currentJob?.title}, làm sao để thiết kế hệ thống đảm bảo hiệu năng cao, chịu tải tốt (High Availability) khi có lượng traffic tăng đột biến?`
-          : idx === 3
-          ? `Kể lại một lần bạn gặp xung đột kỹ thuật với đồng nghiệp hoặc sếp. Bạn đã xử lý và thuyết phục họ như thế nào để đi đến kết quả cuối cùng?`
-          : `Giải thích chi tiết sự khác biệt giữa hai công nghệ/phương pháp tiếp cận phổ biến trong ${currentJob?.category === 'backend' ? 'Backend' : 'Frontend'} và khi nào nên dùng từng loại.`
-      })) as any;
-      setSessionQuestions(fallbackQuestions);
-      setCurrentQuestionIndex(0);
-      setUserAnswerText('');
-      setInterviewTimer(0);
-      setView('interview');
+    } catch (err: any) {
+      console.error("[Interview] API start failed:", err);
+      alert(`⚠️ Lỗi kết nối AI khi tạo phiên phỏng vấn:\n${err.message || 'Vui lòng kiểm tra lại API Key hoặc kết nối mạng.'}`);
+      setView('custom-setup');
     }
   };
+
+
+
 
   const handleSubmitAnswer = async () => {
     const currentQ = sessionQuestions[currentQuestionIndex];

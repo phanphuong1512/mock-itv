@@ -8,8 +8,10 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
-from models import MockJob, MockSession, SessionQuestion
+from models import MockJob, MockSession, SessionQuestion, User
+from routes.auth import get_optional_user
 from ai_service import analyze_cv, generate_questions, batch_evaluate_session, generate_custom_questions, index_document
+
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
@@ -112,7 +114,8 @@ async def create_custom_mock_session(
     file: UploadFile = File(...),
     type: str = Form(...), # "cv" or "jd"
     questions_count: int = Form(7),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """
     Upload CV/JD, process it, upload to Pinecone, and generate a custom mock session.
@@ -146,7 +149,11 @@ async def create_custom_mock_session(
     if not job:
         raise HTTPException(status_code=500, detail="Custom Mock Job not initialized in DB.")
 
-    session = MockSession(job_id=job.id, status="in_progress")
+    session = MockSession(
+        job_id=job.id,
+        user_id=current_user.id if current_user else None,
+        status="in_progress"
+    )
     db.add(session)
     db.flush()
     
@@ -168,13 +175,16 @@ async def create_custom_mock_session(
             mock_type=mock_type_str,
             count=questions_count
         )
+        if not ai_questions or len(ai_questions) == 0:
+            raise ValueError("Không nhận được câu hỏi từ AI.")
     except Exception as e:
-        print(f"[AI] ⚠️ Failed to generate custom questions: {e}")
-        # Fallback
-        ai_questions = [
-            {"question_text": f"Câu hỏi {i+1} về {type.upper()}", "tag": "technical"}
-            for i in range(questions_count)
-        ]
+        db.rollback()
+        print(f"[AI] ❌ Failed to generate custom questions: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Không thể khởi tạo câu hỏi từ tài liệu qua AI: {str(e)}"
+        )
+
 
     # Save questions
     for i, q in enumerate(ai_questions):
@@ -192,13 +202,15 @@ async def create_custom_mock_session(
 
 
 @router.get("")
-def list_sessions(db: Session = Depends(get_db)):
+def list_sessions(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """Get all completed mock sessions (for history page)."""
-    sessions = (
-        db.query(MockSession)
-        .order_by(MockSession.created_at.desc())
-        .all()
-    )
+    query = db.query(MockSession)
+    if current_user:
+        query = query.filter((MockSession.user_id == current_user.id) | (MockSession.user_id.is_(None)))
+    sessions = query.order_by(MockSession.created_at.desc()).all()
     return [s.to_dict() for s in sessions]
 
 
@@ -212,7 +224,11 @@ def get_session(session_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("")
-async def create_session(req: CreateSessionRequest, db: Session = Depends(get_db)):
+async def create_session(
+    req: CreateSessionRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """
     Create a new mock interview session.
     AI generates interview questions via function calling.
@@ -222,9 +238,14 @@ async def create_session(req: CreateSessionRequest, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Job not found")
 
     # Create session
-    session = MockSession(job_id=job.id, status="in_progress")
+    session = MockSession(
+        job_id=job.id,
+        user_id=current_user.id if current_user else None,
+        status="in_progress"
+    )
     db.add(session)
     db.flush()
+
 
     # Analyze CV if provided
     cv_context = None
@@ -247,13 +268,16 @@ async def create_session(req: CreateSessionRequest, db: Session = Depends(get_db
             count=req.questions_count,
             cv_context=cv_context,
         )
+        if not ai_questions or len(ai_questions) == 0:
+            raise ValueError("Không nhận được câu hỏi từ AI.")
     except Exception as e:
-        print(f"[AI] ⚠️ Failed to generate questions: {e}")
-        # Fallback: generic questions
-        ai_questions = [
-            {"question_text": f"Câu hỏi kỹ thuật {i+1} cho vị trí {job.title}", "tag": "technical"}
-            for i in range(req.questions_count)
-        ]
+        db.rollback()
+        print(f"[AI] ❌ Failed to generate questions: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Không thể khởi tạo câu hỏi từ AI: {str(e)}"
+        )
+
 
     # Save questions
     for i, q in enumerate(ai_questions):

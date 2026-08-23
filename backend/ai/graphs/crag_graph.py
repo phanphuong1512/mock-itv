@@ -101,19 +101,15 @@ async def generate_node(state: CRAGState) -> CRAGState:
         context=context_text,
     )
 
-    try:
-        msg = await ainvoke_with_retry_429(llm, messages, retries=cfg.max_retries_429, delay=cfg.retry_delay_sec)
-        args = extract_first_tool_args(msg)
-        if args:
-            parsed = parse_generate_questions_args(args)
-            state["final_questions"] = [q.model_dump() for q in parsed.questions]
-            return state
-    except Exception as e:
-        print(f"[AI] CRAG Generate Error: {e}")
+    msg = await ainvoke_with_retry_429(llm, messages, retries=cfg.max_retries_429, delay=cfg.retry_delay_sec)
+    args = extract_first_tool_args(msg)
+    if args:
+        parsed = parse_generate_questions_args(args)
+        state["final_questions"] = [q.model_dump() for q in parsed.questions]
+        return state
 
-    # Fallback
-    state["final_questions"] = [{"question_text": f"Câu hỏi {i + 1} về {state['mock_type']}", "tag": "technical"} for i in range(state['count'])]
-    return state
+    raise ValueError("AI CRAG không trích xuất được câu hỏi phù hợp từ tài liệu.")
+
 
 def build_crag_graph():
     builder = StateGraph(CRAGState)

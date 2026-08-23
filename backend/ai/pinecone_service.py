@@ -11,29 +11,31 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "mockitv")
 
-# Initialize Pinecone client
-pc = Pinecone(api_key=PINECONE_API_KEY)
-
-# Use provided EMBEDDING_API_KEY for text-embedding-3-large
-OPENAI_ENDPOINT = os.getenv("OPENAI_ENDPOINT")
-EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY")
-
-embeddings = OpenAIEmbeddings(
-    model="text-embedding-3-large",
-    openai_api_key=EMBEDDING_API_KEY,
-    openai_api_base=OPENAI_ENDPOINT,
-    dimensions=3072,
-)
+def get_embeddings() -> OpenAIEmbeddings:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    return OpenAIEmbeddings(
+        model="text-embedding-3-large",
+        openai_api_key=os.getenv("EMBEDDING_API_KEY"),
+        openai_api_base=os.getenv("OPENAI_ENDPOINT"),
+        dimensions=3072,
+    )
 
 def get_vectorstore(namespace: str) -> PineconeVectorStore:
     """Get Pinecone vector store for a specific namespace."""
-    index = pc.Index(PINECONE_INDEX_NAME)
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    pinecone_key = os.getenv("PINECONE_API_KEY")
+    index_name = os.getenv("PINECONE_INDEX_NAME", "mockitv")
+    client = Pinecone(api_key=pinecone_key)
+    index = client.Index(index_name)
     return PineconeVectorStore(
         index=index,
-        embedding=embeddings,
+        embedding=get_embeddings(),
         namespace=namespace,
         text_key="text"
     )
+
 
 def index_document(text: str, namespace: str):
     """Chunk and index document into Pinecone."""
