@@ -9,6 +9,9 @@ export interface User {
   name: string;
   avatarUrl: string;
   googleId?: string;
+  plan?: string;
+  credits?: number;
+  planExpiredAt?: string;
   createdAt?: string;
 }
 
@@ -17,8 +20,10 @@ interface AuthContextProps {
   token: string | null;
   isLoading: boolean;
   loginWithGoogle: (credential: string) => Promise<boolean>;
+  refreshUser: () => Promise<void>;
   logout: () => void;
 }
+
 
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -108,6 +113,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const refreshUser = async () => {
+    const savedToken = token || localStorage.getItem('mockitv_token');
+    if (!savedToken) return;
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${savedToken}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user) {
+          setUser(data.user);
+          localStorage.setItem('mockitv_user', JSON.stringify(data.user));
+        }
+      }
+    } catch (e) {
+      console.error('Error refreshing user', e);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -123,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           token,
           isLoading,
           loginWithGoogle,
+          refreshUser,
           logout,
         }}
       >
@@ -131,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </GoogleOAuthProvider>
   );
 }
+
 
 
 export function useAuth() {

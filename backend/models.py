@@ -17,9 +17,13 @@ class User(Base):
     name = Column(String(255), nullable=False)
     avatar_url = Column(String(500), default="")
     google_id = Column(String(255), unique=True, index=True, nullable=True)
+    plan = Column(String(50), default="free")  # free, pro, premium
+    credits = Column(Integer, default=4)
+    plan_expired_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     sessions = relationship("MockSession", back_populates="user")
+    transactions = relationship("PaymentTransaction", back_populates="user")
 
     def to_dict(self) -> dict:
         return {
@@ -28,8 +32,44 @@ class User(Base):
             "name": self.name,
             "avatarUrl": self.avatar_url,
             "googleId": self.google_id,
+            "plan": self.plan or "free",
+            "credits": self.credits or 0,
+            "planExpiredAt": self.plan_expired_at.isoformat() if self.plan_expired_at else None,
             "createdAt": self.created_at.isoformat() if self.created_at else "",
         }
+
+
+class PaymentTransaction(Base):
+    """A payment transaction via SePay VietQR."""
+    __tablename__ = "payment_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    order_code = Column(String(100), unique=True, index=True, nullable=False)  # e.g., ITV1024PRO5A
+    plan = Column(String(50), nullable=False)  # pro, premium
+    amount = Column(Integer, nullable=False)  # in VND e.g. 99000, 199000
+    status = Column(String(20), default="pending")  # pending, completed, failed
+    gateway_transaction_id = Column(String(100), nullable=True)
+    payment_content = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="transactions")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "userId": self.user_id,
+            "orderCode": self.order_code,
+            "plan": self.plan,
+            "amount": self.amount,
+            "status": self.status,
+            "gatewayTransactionId": self.gateway_transaction_id,
+            "paymentContent": self.payment_content,
+            "createdAt": self.created_at.isoformat() if self.created_at else "",
+            "completedAt": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
 
 
 class MockJob(Base):

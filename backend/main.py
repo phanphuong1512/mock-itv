@@ -30,6 +30,7 @@ from routes.jobs import router as jobs_router
 from routes.sessions import router as sessions_router
 from routes.voice import router as voice_router
 from routes.auth import router as auth_router
+from routes.payments import router as payments_router
 
 
 app = FastAPI(
@@ -52,6 +53,8 @@ app.include_router(auth_router)
 app.include_router(jobs_router)
 app.include_router(sessions_router)
 app.include_router(voice_router)
+app.include_router(payments_router)
+
 
 
 

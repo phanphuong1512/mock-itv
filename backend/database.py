@@ -1,12 +1,13 @@
-# -*- coding: utf-8 -*-
-"""SQLAlchemy database engine and session management for MockITV."""
-
 import os
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./mockitv.db")
+
 
 # Handle postgres:// legacy URL format
 if DATABASE_URL.startswith("postgres://"):
@@ -60,7 +61,8 @@ def get_db():
 
 def init_db():
     """Create all tables. Called on app startup."""
-    from models import MockJob, MockSession, SessionQuestion, User  # noqa: F401
+    from models import MockJob, MockSession, SessionQuestion, User, PaymentTransaction  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+
 
