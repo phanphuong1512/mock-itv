@@ -29,7 +29,11 @@ export default function Navbar() {
 
         {/* Links */}
         <div className="hidden md:flex items-center gap-8 text-base font-bold opacity-80 hover:opacity-100 transition-opacity">
-          <Link href="/jobs" className="hover:text-blue-500 transition-colors">{t('nav.mock')}</Link>
+          <Link href="/mocks" className="hover:text-blue-500 transition-colors">{t('nav.mock')}</Link>
+          <Link href="/custom-mock" className="hover:text-blue-500 transition-colors flex items-center gap-1">
+            <Sparkles className="w-4 h-4 text-emerald-500" />
+            Custom Mock
+          </Link>
           <Link href="/history" className="hover:text-blue-500 transition-colors">Lịch sử mock</Link>
           <Link href="/pricing" className="hover:text-blue-500 transition-colors">{t('nav.pricing')}</Link>
         </div>

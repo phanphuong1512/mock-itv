@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
+import { Lexend } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 
-const outfit = Outfit({
-  variable: "--font-inter",
-  subsets: ["latin"],
+const lexend = Lexend({
+  variable: "--font-lexend",
+  subsets: ["latin", "vietnamese"],
 });
 
 export const metadata: Metadata = {
   title: "MockITV - Nền tảng mock phỏng vấn với AI",
-  description: "Mock phỏng vấn với AI - luyện đều từng vòng để nâng kỹ năng phỏng vấn mỗi tuần.",
+  description:
+    "Mock phỏng vấn với AI - luyện đều từng vòng để nâng kỹ năng phỏng vấn mỗi tuần.",
 };
 
 export default function RootLayout({
@@ -20,12 +21,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" suppressHydrationWarning className={`${outfit.variable} h-full antialiased`}>
+    <html
+      lang="vi"
+      suppressHydrationWarning
+      className={`${lexend.variable} h-full antialiased`}
+    >
       <body className="min-h-full flex flex-col bg-background text-foreground overflow-x-hidden">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+        >
+          <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

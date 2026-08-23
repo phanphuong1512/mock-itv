@@ -28,6 +28,7 @@ from database import init_db, SessionLocal
 from seed_data import seed_database
 from routes.jobs import router as jobs_router
 from routes.sessions import router as sessions_router
+from routes.voice import router as voice_router
 
 
 app = FastAPI(
@@ -48,6 +49,7 @@ app.add_middleware(
 # Register routes
 app.include_router(jobs_router)
 app.include_router(sessions_router)
+app.include_router(voice_router)
 
 
 # Custom JSON response with UTF-8

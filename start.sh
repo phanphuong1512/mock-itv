@@ -44,7 +44,7 @@ cleanup() {
         pid=$(lsof -t -i:$port 2>/dev/null || true)
         if [ -n "$pid" ]; then
             echo "   Force-killing remaining process on port $port (PID: $pid)..."
-            kill -9 "$pid" 2>/dev/null || true
+            kill -9 $pid 2>/dev/null || true
         fi
     done
     
@@ -61,7 +61,7 @@ for port in 3000 8000; do
     pid=$(lsof -t -i:$port 2>/dev/null || true)
     if [ -n "$pid" ]; then
         echo "   Port $port is in use. Killing process $pid..."
-        kill -9 "$pid" 2>/dev/null || true
+        kill -9 $pid 2>/dev/null || true
         sleep 0.5
     fi
 done
@@ -74,22 +74,25 @@ cd "$ROOT_DIR/backend"
 
 if [ ! -d "venv" ]; then
     python3 -m venv venv
+    source venv/bin/activate
+    pip install -q -r requirements.txt
+else
+    source venv/bin/activate
 fi
-source venv/bin/activate
-
-pip install -q -r requirements.txt
 
 # Create .env from example if not exists
 if [ ! -f ".env" ]; then
     echo "⚠️  No .env file found. Copying from .env.example..."
-    echo "   Please edit backend/.env and add your GEMINI_API_KEY"
+    echo "   Please edit backend/.env and add your OPENAI_API_KEY"
     cp .env.example .env
 fi
 
 echo "✅ [Backend] Dependencies installed."
+echo "⏳ [Backend] Checking and downloading AI model if needed..."
+python download_model.py
 echo "🚀 [Backend] Starting FastAPI server on port 8000 using Uvicorn..."
 # Run using python -m uvicorn to ensure using virtual environment's uvicorn
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload &
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload > >(tee "$ROOT_DIR/logs/backend.log") 2>&1 &
 BACKEND_PID=$!
 
 # ---- Frontend Setup ----
@@ -103,7 +106,7 @@ fi
 
 echo "✅ [Frontend] Dependencies ready."
 echo "🚀 [Frontend] Starting Next.js dev server on port 3000..."
-npm run dev &
+npm run dev > >(tee "$ROOT_DIR/logs/frontend.log") 2>&1 &
 FRONTEND_PID=$!
 
 # ---- Wait & Open Browser ----

@@ -5,6 +5,11 @@
 # Database
 *.db
 *.db-journal
+*.db-shm
+*.db-wal
+
+# ML Models
+backend/models/
 
 # Python
 __pycache__/
@@ -29,3 +34,10 @@ out/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude/Agent
+.agent/
+.claude/
+
+# Logs
+logs/

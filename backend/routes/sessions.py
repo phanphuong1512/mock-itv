@@ -1,22 +1,30 @@
 # -*- coding: utf-8 -*-
 """API routes for mock interview sessions — includes AI evaluation."""
 
+import io
 import json
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from database import get_db
 from models import MockJob, MockSession, SessionQuestion
-from ai_service import generate_questions, batch_evaluate_session
+from ai_service import analyze_cv, generate_questions, batch_evaluate_session, generate_custom_questions, index_document
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
 # ---- Request Models ----
 
+class AnalyzeCVRequest(BaseModel):
+    job_id: int
+    cv_text: str
+
+
 class CreateSessionRequest(BaseModel):
     job_id: int
     questions_count: int = 7
+    cv_text: Optional[str] = None
 
 
 class SubmitAnswerRequest(BaseModel):
@@ -24,7 +32,164 @@ class SubmitAnswerRequest(BaseModel):
     answer: str
 
 
+# ---- Constants ----
+
+_MAX_CV_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+# ---- CV File Parsers ----
+
+def _extract_text_from_pdf(content: bytes) -> str:
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(content))
+        pages = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Không thể đọc file PDF: {e}")
+
+
+def _extract_text_from_docx(content: bytes) -> str:
+    try:
+        import docx
+        doc = docx.Document(io.BytesIO(content))
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(paragraphs)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Không thể đọc file DOCX: {e}")
+
+
 # ---- Endpoints ----
+
+@router.post("/analyze-cv")
+async def analyze_cv_endpoint(req: AnalyzeCVRequest, db: Session = Depends(get_db)):
+    """Analyze a candidate's CV against a job and return structured insights."""
+    job = db.query(MockJob).filter(MockJob.id == req.job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    result = await analyze_cv(
+        cv_text=req.cv_text,
+        position=job.title,
+        tech_stack=job.tech_stack_list,
+    )
+    return result
+
+
+@router.post("/parse-cv")
+async def parse_cv_file(file: UploadFile = File(...)):
+    """Extract plain text from an uploaded PDF or DOCX CV file (max 5 MB)."""
+    filename = (file.filename or "").lower()
+    content = await file.read()
+
+    if len(content) > _MAX_CV_FILE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File quá lớn. Giới hạn tối đa {_MAX_CV_FILE_BYTES // (1024 * 1024)} MB.",
+        )
+
+    if filename.endswith(".pdf"):
+        text = _extract_text_from_pdf(content)
+    elif filename.endswith(".docx"):
+        text = _extract_text_from_docx(content)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hỗ trợ file PDF (.pdf) hoặc Word (.docx)",
+        )
+
+    if not text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="Không thể đọc nội dung từ file này. File có thể là ảnh scan hoặc bị lỗi.",
+        )
+
+    return {"text": text.strip()}
+
+
+@router.post("/custom-mock")
+async def create_custom_mock_session(
+    file: UploadFile = File(...),
+    type: str = Form(...), # "cv" or "jd"
+    questions_count: int = Form(7),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload CV/JD, process it, upload to Pinecone, and generate a custom mock session.
+    """
+    filename = (file.filename or "").lower()
+    content = await file.read()
+
+    if len(content) > _MAX_CV_FILE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File quá lớn. Giới hạn tối đa {_MAX_CV_FILE_BYTES // (1024 * 1024)} MB.",
+        )
+
+    # Extract text
+    if filename.endswith(".pdf"):
+        text = _extract_text_from_pdf(content)
+    elif filename.endswith(".docx"):
+        text = _extract_text_from_docx(content)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hỗ trợ file PDF (.pdf) hoặc Word (.docx)",
+        )
+
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="Không thể đọc nội dung từ file.")
+
+    # Create Mock Session tied to Job 999
+    job_id = 999
+    job = db.query(MockJob).filter(MockJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=500, detail="Custom Mock Job not initialized in DB.")
+
+    session = MockSession(job_id=job.id, status="in_progress")
+    db.add(session)
+    db.flush()
+    
+    namespace = f"session_{session.id}"
+
+    # Index into Pinecone
+    try:
+        index_document(text, namespace)
+    except Exception as e:
+        db.rollback()
+        print(f"[AI] ⚠️ Pinecone indexing failed: {e}")
+        raise HTTPException(status_code=500, detail="Lỗi khi xử lý vector DB.")
+
+    # Generate questions using RAG
+    try:
+        mock_type_str = "CV" if type.lower() == "cv" else "Job Description"
+        ai_questions = await generate_custom_questions(
+            namespace=namespace,
+            mock_type=mock_type_str,
+            count=questions_count
+        )
+    except Exception as e:
+        print(f"[AI] ⚠️ Failed to generate custom questions: {e}")
+        # Fallback
+        ai_questions = [
+            {"question_text": f"Câu hỏi {i+1} về {type.upper()}", "tag": "technical"}
+            for i in range(questions_count)
+        ]
+
+    # Save questions
+    for i, q in enumerate(ai_questions):
+        question = SessionQuestion(
+            session_id=session.id,
+            question_order=i + 1,
+            tag=q.get("tag", "technical"),
+            question_text=q.get("question_text", ""),
+        )
+        db.add(question)
+
+    db.commit()
+    db.refresh(session)
+    return session.to_dict(include_questions=True)
+
 
 @router.get("")
 def list_sessions(db: Session = Depends(get_db)):
@@ -61,6 +226,18 @@ async def create_session(req: CreateSessionRequest, db: Session = Depends(get_db
     db.add(session)
     db.flush()
 
+    # Analyze CV if provided
+    cv_context = None
+    if req.cv_text and req.cv_text.strip():
+        try:
+            cv_context = await analyze_cv(
+                cv_text=req.cv_text,
+                position=job.title,
+                tech_stack=job.tech_stack_list,
+            )
+        except Exception as e:
+            print(f"[AI] ⚠️ CV analysis failed, proceeding without: {e}")
+
     # AI generates questions
     try:
         ai_questions = await generate_questions(
@@ -68,6 +245,7 @@ async def create_session(req: CreateSessionRequest, db: Session = Depends(get_db
             level=job.level,
             tech_stack=job.tech_stack_list,
             count=req.questions_count,
+            cv_context=cv_context,
         )
     except Exception as e:
         print(f"[AI] ⚠️ Failed to generate questions: {e}")
@@ -103,7 +281,7 @@ def submit_answer(session_id: int, req: SubmitAnswerRequest, db: Session = Depen
     if not question:
         raise HTTPException(status_code=404, detail="Question not found in this session")
 
-    question.user_answer = req.answer
+    question.user_answer = (req.answer or "").strip()
     db.commit()
     return {"status": "ok", "questionId": question.id}
 
