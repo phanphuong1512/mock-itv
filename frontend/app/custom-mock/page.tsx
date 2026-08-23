@@ -279,102 +279,151 @@ export default function CustomMockPage() {
     }
   }, [playTTS]);
 
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [voiceTextInput, setVoiceTextInput] = useState('');
   const speechRecognitionRef = useRef<any>(null);
   const recordedSpeechTextRef = useRef<string>('');
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     isRecordingRef.current = true;
     setIsRecording(true);
     setLiveTranscript('');
     recordedSpeechTextRef.current = '';
 
-    const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      mediaStreamRef.current = stream;
 
-    if (SpeechRecognition) {
-      try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const audioCtx = new AudioCtx();
+        audioContextRef.current = audioCtx;
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 64;
+        source.connect(analyser);
+        analyserRef.current = analyser;
+
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        const checkAudio = () => {
+          if (!isRecordingRef.current) return;
+          analyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) {
+            sum += dataArray[i];
+          }
+          const avg = sum / dataArray.length;
+          setAudioLevel(Math.min(100, Math.round(avg * 2.5)));
+          animFrameRef.current = requestAnimationFrame(checkAudio);
+        };
+        checkAudio();
+      }
+
+      const SpeechRecognition = typeof window !== 'undefined' ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
+      if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'vi-VN';
+        recognition.maxAlternatives = 1;
+
+        let accumulated = '';
 
         recognition.onresult = (event: any) => {
-          let interimTranscript = '';
-          let finalTranscript = '';
-
-          for (let i = 0; i < event.results.length; ++i) {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
             const transcript = event.results[i][0].transcript;
             if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' ';
+              accumulated += transcript + ' ';
             } else {
-              interimTranscript += transcript;
+              interim += transcript;
             }
           }
 
-          const combined = (finalTranscript + interimTranscript).trim();
+          const combined = (accumulated + interim).trim();
           if (combined) {
             recordedSpeechTextRef.current = combined;
             setLiveTranscript(combined);
+            setVoiceTextInput(combined);
           }
         };
 
         recognition.onerror = (event: any) => {
-          console.warn('[STT] SpeechRecognition event:', event.error);
-          if (event.error === 'not-allowed') {
-            alert('Không thể truy cập microphone. Vui lòng cấp quyền micro trên trình duyệt.');
-            isRecordingRef.current = false;
-            setIsRecording(false);
-          }
+          console.warn('[STT] SpeechRecognition error in custom-mock:', event.error);
         };
 
         recognition.onend = () => {
           if (isRecordingRef.current) {
-            try { recognition.start(); } catch {}
+            try {
+              recognition.start();
+            } catch (e) {
+              console.warn('[STT] Auto-restart custom-mock:', e);
+            }
           }
         };
 
-        recognition.start();
-        speechRecognitionRef.current = recognition;
-        return;
-      } catch (err) {
-        console.error('[STT] SpeechRecognition error in custom-mock:', err);
+        try {
+          recognition.start();
+          speechRecognitionRef.current = recognition;
+        } catch (e) {
+          console.error('[STT] recognition.start() error:', e);
+        }
       }
+    } catch (err: any) {
+      console.error('[STT] custom-mock mic error:', err);
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      alert('Không thể truy cập microphone. Vui lòng kiểm tra quyền micro trên trình duyệt của bạn.');
     }
-
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => {
-        (recognitionRef as any).current = stream;
-        setLiveTranscript('Đang lắng nghe câu trả lời của bạn...');
-      })
-      .catch(() => {
-        isRecordingRef.current = false;
-        setIsRecording(false);
-        alert('Không thể truy cập microphone. Vui lòng cấp quyền micro.');
-      });
   }, []);
 
   const stopRecording = useCallback(() => {
     isRecordingRef.current = false;
     setIsRecording(false);
+    setAudioLevel(0);
+
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
 
     if (speechRecognitionRef.current) {
       try { speechRecognitionRef.current.stop(); } catch {}
       speechRecognitionRef.current = null;
     }
 
-    if (recognitionRef.current && (recognitionRef.current as any).getTracks) {
-      try { (recognitionRef.current as any).getTracks().forEach((t: any) => t.stop()); } catch {}
-      recognitionRef.current = null;
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch {}
+      audioContextRef.current = null;
     }
 
-    const currentText = (recordedSpeechTextRef.current || liveTranscript).trim();
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach(t => t.stop());
+      } catch {}
+      mediaStreamRef.current = null;
+    }
+
+    const currentText = (recordedSpeechTextRef.current || liveTranscript || voiceTextInput).trim();
     if (currentText && currentText !== 'Đang lắng nghe câu trả lời của bạn...' && voiceSessionId) {
       setLiveTranscript('');
+      setVoiceTextInput('');
       setVoiceMessages(prev => [...prev, { role: 'user', content: currentText }]);
       sendVoiceMessage(currentText, voiceSessionId);
     } else {
       setLiveTranscript('');
     }
-  }, [voiceSessionId, sendVoiceMessage, liveTranscript]);
+  }, [voiceSessionId, sendVoiceMessage, liveTranscript, voiceTextInput]);
+
 
 
   const handleStartVoiceInterview = async () => {
@@ -1259,22 +1308,32 @@ export default function CustomMockPage() {
               <div className="bg-[#151E32] rounded-3xl border border-slate-700/50 shadow-2xl shadow-blue-500/5 px-14 py-10 flex gap-16 items-end mx-6">
                 {/* You */}
                 <div className="flex flex-col items-center gap-3">
-                  <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-4xl select-none shadow-inner border-2 border-slate-600 transition-all duration-300 ${isRecording ? 'ring-4 ring-emerald-400/50 ring-offset-4 ring-offset-[#151E32]' : ''}`}>
+                  <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center text-4xl select-none shadow-inner border-2 transition-all duration-300 relative ${
+                    isRecording 
+                      ? 'border-emerald-400 ring-4 ring-emerald-400/40 ring-offset-4 ring-offset-[#151E32]' 
+                      : 'border-slate-600'
+                  }`}>
+                    {isRecording && (
+                      <div 
+                        className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping pointer-events-none" 
+                        style={{ animationDuration: audioLevel > 15 ? '1s' : '2s' }}
+                      />
+                    )}
                     🧑
                   </div>
                   <div className="text-center">
                     <p className="font-medium text-slate-200 text-sm">You</p>
-                    <p className="text-xs text-slate-500">Interviewee</p>
+                    <p className="text-xs text-slate-500">
+                      {isRecording ? (
+                        <span className="text-emerald-400 font-semibold flex items-center gap-1 justify-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          {audioLevel > 5 ? 'Đang nhận mic 🟢' : 'Đang lắng nghe...'}
+                        </span>
+                      ) : (
+                        'Interviewee'
+                      )}
+                    </p>
                   </div>
-                  {isRecording && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-1 h-3 bg-emerald-400 rounded-full animate-pulse" />
-                      <span className="w-1 h-4 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-2 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-                      <span className="w-1 h-5 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-                      <span className="w-1 h-3 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '250ms' }} />
-                    </div>
-                  )}
                 </div>
 
                 {/* AI Interviewer */}
@@ -1287,22 +1346,40 @@ export default function CustomMockPage() {
                   </div>
                   <div className="text-center">
                     <p className="font-bold text-slate-200 text-sm">MockITV AI</p>
-                    <p className="text-xs text-slate-500">Interviewer</p>
+                    <p className="text-xs text-slate-500">
+                      {isAISpeaking ? (
+                        <span className="text-blue-400 font-semibold flex items-center gap-1 justify-center">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                          Đang trả lời...
+                        </span>
+                      ) : isAIThinking ? (
+                        <span className="text-amber-400 font-semibold">Đang suy nghĩ...</span>
+                      ) : (
+                        'Interviewer'
+                      )}
+                    </p>
                   </div>
-                  {isAISpeaking && (
-                    <div className="flex items-center gap-1">
-                      <span className="w-1 h-3 bg-blue-400 rounded-full animate-pulse" />
-                      <span className="w-1 h-5 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '100ms' }} />
-                      <span className="w-1 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                      <span className="w-1 h-4 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1 h-3 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '250ms' }} />
-                    </div>
-                  )}
                 </div>
               </div>
 
+              {/* Sound Wave Indicator when recording */}
+              {isRecording && (
+                <div className="flex items-center justify-center gap-1.5 mt-4">
+                  {[...Array(11)].map((_, i) => (
+                    <span
+                      key={i}
+                      className="w-1 bg-emerald-400 rounded-full transition-all duration-75"
+                      style={{
+                        height: `${Math.max(4, Math.sin((i + 1) * 0.7) * (audioLevel * 0.35) + 6)}px`,
+                        opacity: audioLevel > 5 ? 1 : 0.4
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
               {/* Current message / transcript */}
-              <div className="max-w-lg w-full px-6 mt-6 space-y-3">
+              <div className="max-w-xl w-full px-6 mt-5 space-y-3">
                 {isAIThinking ? (
                   <div className="bg-[#1a2540] rounded-2xl px-6 py-4 text-center flex items-center justify-center gap-1.5">
                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -1316,51 +1393,91 @@ export default function CustomMockPage() {
                 ) : null}
 
                 {(isRecording || liveTranscript) && (
-                  <p className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl px-6 py-4 text-sm text-center leading-relaxed">
-                    {liveTranscript
-                      ? <span className="text-emerald-300">{liveTranscript}</span>
-                      : <span className="text-emerald-500/60 italic">Đang nghe...</span>
-                    }
-                  </p>
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-center space-y-2">
+                    <p className="text-sm text-emerald-300 leading-relaxed font-medium">
+                      {liveTranscript || <span className="text-emerald-400/60 italic">Hãy nói câu trả lời của bạn vào micro...</span>}
+                    </p>
+                  </div>
                 )}
               </div>
 
-              <div className="flex-1 min-h-12" />
+              <div className="flex-1 min-h-6" />
 
-              {/* Bottom Controls */}
-              <div className="pb-10 flex flex-col items-center gap-3 w-full px-6">
+              {/* Bottom Interactive Voice & Text Bar */}
+              <div className="pb-8 flex flex-col items-center gap-4 w-full max-w-xl px-6">
+                {/* Quick text input fallback */}
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (voiceTextInput.trim() && voiceSessionId) {
+                      const text = voiceTextInput.trim();
+                      if (isRecording) stopRecording();
+                      setVoiceTextInput('');
+                      setLiveTranscript('');
+                      setVoiceMessages(prev => [...prev, { role: 'user', content: text }]);
+                      sendVoiceMessage(text, voiceSessionId);
+                    }
+                  }}
+                  className="w-full flex items-center gap-2 bg-[#151E32] border border-slate-700/60 rounded-full px-4 py-2 shadow-lg"
+                >
+                  <input
+                    type="text"
+                    value={voiceTextInput}
+                    onChange={(e) => {
+                      setVoiceTextInput(e.target.value);
+                      if (e.target.value) setLiveTranscript(e.target.value);
+                    }}
+                    placeholder="Hoặc gõ/chỉnh sửa câu trả lời tại đây..."
+                    disabled={isAISpeaking || isAIThinking}
+                    className="flex-1 bg-transparent text-sm text-white placeholder:text-slate-500 outline-none px-2"
+                  />
+                  {voiceTextInput.trim() && (
+                    <button
+                      type="submit"
+                      disabled={isAISpeaking || isAIThinking}
+                      className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-full transition-colors shrink-0"
+                    >
+                      Gửi ngay
+                    </button>
+                  )}
+                </form>
+
+                {/* Primary Voice Action Bar */}
                 <div className="flex items-center gap-4 bg-[#151E32] rounded-full border border-slate-700/50 shadow-2xl px-6 py-3">
                   <button
                     onClick={isRecording ? stopRecording : startRecording}
                     disabled={isAISpeaking || isAIThinking}
-                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow active:scale-95 disabled:opacity-40 ${
+                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow active:scale-95 disabled:opacity-40 cursor-pointer ${
                       isRecording
-                        ? 'bg-red-500 shadow-red-500/30 animate-pulse'
-                        : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/30'
+                        ? 'bg-red-500 shadow-red-500/40 ring-4 ring-red-400/40 animate-pulse'
+                        : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-600/30'
                     }`}
+                    title={isRecording ? "Nhấn để dừng và gửi câu trả lời" : "Nhấn để bắt đầu nói"}
                   >
-                    <Mic className="w-5 h-5 text-white" />
+                    <Mic className={`w-6 h-6 text-white ${isRecording ? 'animate-bounce' : ''}`} />
                   </button>
+
+                  <div className="text-left pr-2">
+                    <p className="text-xs font-bold text-slate-200">
+                      {isRecording ? "Đang ghi âm..." : "Bấm Micro để nói"}
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      {isRecording ? "Nói xong bấm lại để gửi" : "Hỗ trợ tiếng Việt & tiếng Anh"}
+                    </p>
+                  </div>
+
                   <div className="w-px h-6 bg-slate-700" />
                   <button
                     onClick={handleEndVoiceInterview}
-                    className="flex items-center gap-2 text-slate-400 font-semibold text-sm px-3 hover:text-white transition-colors"
+                    className="flex items-center gap-1.5 text-slate-400 font-semibold text-xs px-2 hover:text-red-400 transition-colors cursor-pointer"
                   >
                     Kết thúc
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 text-center">
-                  {isRecording
-                    ? 'Đang nghe... Nhấn để dừng'
-                    : isAISpeaking
-                    ? 'AI đang nói...'
-                    : isAIThinking
-                    ? 'AI đang suy nghĩ...'
-                    : 'Nhấn mic để nói'}
-                </p>
               </div>
             </motion.div>
           )}
+
 
           {/* ==========================================
               VIEW 3: CUSTOM MOCK SETUP
