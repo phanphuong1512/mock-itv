@@ -284,7 +284,7 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
 
       const data = await response.json();
       if (data && data.id) {
-        router.push(`/interview/${data.id}?voice=true`);
+        router.push(`/interview/${data.id}?mode=voice`);
       } else {
         throw new Error("Không nhận được mã phiên phỏng vấn hợp lệ");
       }
@@ -506,16 +506,18 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
 
                   <button
                     onClick={handleStartVoiceInterview}
-                    className="w-full py-3.5 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer relative"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between cursor-pointer relative"
                   >
-                    <Phone className="w-4 h-4" />
-                    <span>Phỏng vấn giọng nói</span>
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 shrink-0" />
+                      <span className="whitespace-nowrap">Phỏng vấn giọng nói</span>
+                    </div>
                     {(!user || user.plan === 'free') ? (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 ml-1">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30 whitespace-nowrap shrink-0">
                         1 lần / 24h
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 ml-1">
+                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap shrink-0">
                         PRO
                       </span>
                     )}

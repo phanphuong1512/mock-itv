@@ -25,6 +25,10 @@ class EvaluationState(TypedDict):
     final_result: Dict[str, Any]
 
 # --- Schemas for Tools ---
+class ResourceItem(BaseModel):
+    title: str = Field(description="Tên tài liệu, bài viết hướng dẫn chuyên sâu hoặc trang chủ đề")
+    url: str = Field(description="Đường link URL trực tiếp và chính xác tới tài liệu đó (ví dụ: https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/...)")
+
 class TechQuestionEval(BaseModel):
     question_index: int
     technical_score: int
@@ -44,10 +48,6 @@ class BehavQuestionEval(BaseModel):
     behavioral_strengths: list[str] = Field(default_factory=list)
     behavioral_weaknesses: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
-
-class ResourceItem(BaseModel):
-    title: str = Field(description="Tên tài liệu, bài viết hướng dẫn chuyên sâu hoặc trang chủ đề")
-    url: str = Field(description="Đường link URL trực tiếp và chính xác tới tài liệu đó (ví dụ: https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/...)")
 
 class BehavEvalResult(BaseModel):
     evaluations: list[BehavQuestionEval]

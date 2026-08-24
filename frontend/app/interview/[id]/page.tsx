@@ -13,7 +13,8 @@ import { MockSessionResponse, SessionQuestionResponse } from '@/types/api';
 export default function InterviewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const mode = searchParams?.get('mode') === 'voice' ? 'voice' : 'text';
+  const isVoice = searchParams?.get('mode') === 'voice' || searchParams?.get('voice') === 'true';
+  const mode = isVoice ? 'voice' : 'text';
   const resolvedParams = use(params);
   const sessionId = parseInt(resolvedParams.id);
 
