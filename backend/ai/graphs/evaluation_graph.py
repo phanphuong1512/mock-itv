@@ -35,6 +35,7 @@ class TechEvalResult(BaseModel):
     evaluations: list[TechQuestionEval]
     overall_technical_score: int
     topics_to_learn: list[str] = Field(default_factory=list)
+    resources: list[ResourceItem] = Field(default_factory=list)
 
 class BehavQuestionEval(BaseModel):
     question_index: int
@@ -119,6 +120,8 @@ QUY TẮC CHẤM ĐIỂM CHUYÊN MÔN:
 4. Nếu trả lời đúng trọng tâm cơ bản: Chấm điểm trung bình (50 - 70 điểm).
 5. Nếu trả lời xuất sắc, có phân tích kiến trúc, trade-offs, best practices: Chấm điểm cao (75 - 100 điểm).
 6. Hãy chấm technical_score (0-100) cho từng câu.
+7. TOPICS TO LEARN (topics_to_learn): Chỉ ra 3-6 chủ đề kiến thức chuyên môn cốt lõi mà ứng viên cần học/ôn tập thêm.
+8. TÀI LIỆU GỢI Ý (resources): BẮT BUỘC gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác (ví dụ: các trang docs chính thức như https://docs.oracle.com/..., https://docs.spring.io/..., https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/..., https://docs.python.org/..., https://kubernetes.io/docs/...).
 
 BẮT BUỘC gọi function {tool_name}."""
     
@@ -128,10 +131,10 @@ BẮT BUỘC gọi function {tool_name}."""
         if args:
             state['technical_evals'] = TechEvalResult.model_validate(args).model_dump()
         else:
-            state['technical_evals'] = {"evaluations": [], "overall_technical_score": 0, "topics_to_learn": []}
+            state['technical_evals'] = {"evaluations": [], "overall_technical_score": 0, "topics_to_learn": [], "resources": []}
     except Exception as e:
         print(f"[AI] Tech grader error: {e}")
-        state['technical_evals'] = {"evaluations": [], "overall_technical_score": 0, "topics_to_learn": ["Không thể phân tích do lỗi kết nối AI"]}
+        state['technical_evals'] = {"evaluations": [], "overall_technical_score": 0, "topics_to_learn": ["Không thể phân tích do lỗi kết nối AI"], "resources": []}
     return state
 
 
@@ -354,8 +357,47 @@ BẮT BUỘC gọi function {tool_name}."""
         except Exception as e:
             print(f"[AI] Synthesizer LLM error: {e}")
             fb_text = "Không thể tạo nhận xét chung do lỗi hệ thống AI. Vui lòng thử lại sau."
-            sts = ["Không có dữ liệu do lỗi hệ thống AI"]
-            wks = ["Không có dữ liệu do lỗi hệ thống AI"]
+    raw_resources = tech_evals.get('resources', []) + behav_evals.get('resources', [])
+    clean_resources = []
+    seen_urls = set()
+    for r in raw_resources:
+        if isinstance(r, dict) and r.get('url'):
+            url = r['url'].strip()
+            if url not in seen_urls:
+                seen_urls.add(url)
+                clean_resources.append(r)
+        elif isinstance(r, str) and r.strip():
+            clean_resources.append({"title": r.strip(), "url": ""})
+
+    if not clean_resources:
+        pos_lower = state['position'].lower()
+        if 'java' in pos_lower or 'spring' in pos_lower:
+            clean_resources = [
+                {"title": "The Java Tutorials (Oracle Docs)", "url": "https://docs.oracle.com/javase/tutorial/"},
+                {"title": "Spring Framework Documentation", "url": "https://docs.spring.io/spring-framework/reference/"},
+                {"title": "Spring Boot Reference Documentation", "url": "https://docs.spring.io/spring-boot/docs/current/reference/html/"},
+                {"title": "Baeldung Java & Spring Guides", "url": "https://www.baeldung.com/"}
+            ]
+        elif 'ai' in pos_lower or 'machine learning' in pos_lower or 'data' in pos_lower:
+            clean_resources = [
+                {"title": "PyTorch Official Documentation", "url": "https://pytorch.org/docs/stable/index.html"},
+                {"title": "Hugging Face Transformers Documentation", "url": "https://huggingface.co/docs/transformers/index"},
+                {"title": "Deep Learning Specialization (DeepLearning.AI)", "url": "https://www.deeplearning.ai/"},
+                {"title": "LangChain Documentation", "url": "https://python.langchain.com/docs/"}
+            ]
+        elif 'frontend' in pos_lower or 'react' in pos_lower or 'web' in pos_lower:
+            clean_resources = [
+                {"title": "MDN Web Docs (Mozilla)", "url": "https://developer.mozilla.org/"},
+                {"title": "React Official Documentation", "url": "https://react.dev/"},
+                {"title": "Next.js Documentation", "url": "https://nextjs.org/docs"},
+                {"title": "TypeScript Handbook", "url": "https://www.typescriptlang.org/docs/"}
+            ]
+        else:
+            clean_resources = [
+                {"title": "System Design Primer (GitHub)", "url": "https://github.com/donnemartin/system-design-primer"},
+                {"title": "LeetCode Interview Preparation", "url": "https://leetcode.com/explore/"},
+                {"title": "GeeksforGeeks Computer Science Portal", "url": "https://www.geeksforgeeks.org/"}
+            ]
 
     state['final_result'] = {
         "evaluations": clean_evals,
@@ -368,7 +410,7 @@ BẮT BUỘC gọi function {tool_name}."""
             "strengths": sts,
             "weaknesses": wks,
             "topics_to_learn": tech_evals.get('topics_to_learn', []),
-            "resources": behav_evals.get('resources', [])
+            "resources": clean_resources
         }
     }
     return state

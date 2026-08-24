@@ -487,29 +487,14 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ id: st
                 </h3>
               </div>
               <div className="p-6">
-                <ul className="space-y-2.5">
+                <ul className="space-y-3">
                   {sessionDetail.topicsToLearn.length > 0 ? (
-                    sessionDetail.topicsToLearn.map((topic: string, idx: number) => {
-                      const url = topic.startsWith('http://') || topic.startsWith('https://')
-                        ? topic
-                        : `https://www.google.com/search?q=${encodeURIComponent(topic)}`;
-                      return (
-                        <li key={idx}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between text-sm sm:text-base text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 cursor-pointer group/link p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                          >
-                            <span className="flex items-center gap-2.5">
-                              <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0" />
-                              <span>{topic}</span>
-                            </span>
-                            <ExternalLink className="w-4 h-4 opacity-0 group-hover/link:opacity-100 -translate-x-1 group-hover/link:translate-x-0 transition-all text-blue-500 shrink-0" />
-                          </a>
-                        </li>
-                      );
-                    })
+                    sessionDetail.topicsToLearn.map((topic: string, idx: number) => (
+                      <li key={idx} className="flex items-start gap-2.5 text-sm sm:text-base text-slate-700 dark:text-slate-300">
+                        <CheckCircle2 className="w-4 h-4 text-blue-500 shrink-0 mt-1" />
+                        <span className="leading-snug">{topic}</span>
+                      </li>
+                    ))
                   ) : (
                     <li className="text-sm text-slate-500 dark:text-slate-400 italic flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
@@ -559,7 +544,7 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ id: st
                           >
                             <span className="flex items-center gap-2.5">
                               <BookOpen className="w-4 h-4 text-emerald-500 shrink-0" />
-                              <span>{title}</span>
+                              <span className="font-medium">{title}</span>
                             </span>
                             <ExternalLink className="w-4 h-4 opacity-0 group-hover/link:opacity-100 -translate-x-1 group-hover/link:translate-x-0 transition-all text-emerald-500 shrink-0" />
                           </a>
