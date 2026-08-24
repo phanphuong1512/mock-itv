@@ -36,7 +36,7 @@ export default function Footer() {
           <div>
             <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-5">Hồ sơ</h4>
             <ul className="space-y-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
-              <li><Link href="/jobs" className="hover:text-slate-900 dark:hover:text-white transition-colors">Mock tuyển dụng</Link></li>
+              <li><Link href="/mocks" className="hover:text-slate-900 dark:hover:text-white transition-colors">Mock tuyển dụng</Link></li>
               <li><Link href="/history" className="hover:text-slate-900 dark:hover:text-white transition-colors">Lịch sử mock</Link></li>
               <li><Link href="/pricing" className="hover:text-slate-900 dark:hover:text-white transition-colors">Bảng giá</Link></li>
             </ul>
@@ -66,9 +66,9 @@ export default function Footer() {
             <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase mb-5">Cộng đồng</h4>
             <ul className="space-y-4 text-sm font-semibold">
               <li>
-                <Link href="#" className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1.5">
-                  Câu chuyện thành công
-                  <ExternalLink className="w-3 h-3" />
+                <Link href="#" className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors whitespace-nowrap group">
+                  <span>Câu chuyện thành công</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </Link>
               </li>
             </ul>
