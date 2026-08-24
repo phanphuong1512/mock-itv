@@ -4,20 +4,18 @@ GENERATE_QUESTIONS_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "You are a senior IT interviewer."),
     ("human", """Bạn là một chuyên gia phỏng vấn IT senior.
 
-Hãy tạo {count} câu hỏi phỏng vấn cho:
+Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn cho:
 
 - Position: {position}
 - Level: {level}
 - Tech stack: {tech_stack}
 
-Yêu cầu:
-- Tiếng Việt
-- Sát thực tế
-- Có technical
-- Có behavioral
-- Có problem-solving
+YÊU CẦU BẮT BUỘC:
+1. Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không được trả về ít hơn {count} câu).
+2. Tiếng Việt chuẩn mực, chuyên nghiệp.
+3. Sát thực tế, phân bổ hợp lý giữa Technical (chuyên môn sâu về {tech_stack}), Problem-Solving (xử lý tình huống hệ thống) và Behavioral (tác phong, làm việc nhóm).
 
-BẮT BUỘC phải gọi function submit_interview_questions.
+BẮT BUỘC phải gọi function {tool_name} với đúng {count} câu hỏi.
 """)
 ])
 
@@ -96,7 +94,7 @@ GENERATE_QUESTIONS_WITH_CV_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "You are a senior IT interviewer."),
     ("human", """Bạn là một chuyên gia phỏng vấn IT senior.
 
-Hãy tạo {count} câu hỏi phỏng vấn kỹ thuật và kỹ năng cho:
+Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn kỹ thuật và kỹ năng cho:
 
 - Vị trí: {position}
 - Cấp bậc: {level}
@@ -109,17 +107,15 @@ THÔNG TIN TỪ CV ỨNG VIÊN:
 - Chủ đề cần tập trung: {cv_focus_areas}
 {cv_projects_section}
 
-YÊU CẦU CÁ NHÂN HÓA:
-1. 100% CÂU HỎI PHẢI LIÊN QUAN ĐẾN KỸ THUẬT LẬP TRÌNH, PHẦN MỀM VÀ CÔNG VIỆC {position}.
-2. TUYỆT ĐỐI KHÔNG HỎI VỀ CÁC MÔN HỌC ĐẠI CƯƠNG NGOÀI NGÀNH (như Lịch sử Đảng, Triết học, v.v.).
-3. Ít nhất 2 câu hỏi tham chiếu trực tiếp đến dự án/công nghệ/kinh nghiệm cụ thể trong CV của ứng viên.
-4. Điều chỉnh độ khó phù hợp trình độ thực tế của ứng viên.
+YÊU CẦU BẮT BUỘC:
+1. Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không được trả về ít hơn {count} câu).
+2. 100% CÂU HỎI PHẢI LIÊN QUAN ĐẾN KỸ THUẬT LẬP TRÌNH, PHẦN MỀM VÀ CÔNG VIỆC {position}.
+3. TUYỆT ĐỐI KHÔNG HỎI VỀ CÁC MÔN HỌC ĐẠI CƯƠNG NGOÀI NGÀNH (như Lịch sử Đảng, Triết học, v.v.).
+4. Ít nhất 2 câu hỏi tham chiếu trực tiếp đến dự án/công nghệ/kinh nghiệm cụ thể trong CV của ứng viên.
+5. Điều chỉnh độ khó phù hợp trình độ thực tế của ứng viên.
+6. Tiếng Việt chuẩn mực, chuyên nghiệp.
 
-Yêu cầu chung:
-- Tiếng Việt chuẩn mực, chuyên nghiệp.
-- Mix giữa Technical (chuyên môn), Problem-Solving (giải quyết vấn đề), và Behavioral (kỹ năng làm việc).
-
-BẮT BUỘC phải gọi function submit_interview_questions.
+BẮT BUỘC phải gọi function {tool_name} với đúng {count} câu hỏi.
 """)
 ])
 
@@ -127,16 +123,18 @@ GENERATE_CUSTOM_QUESTIONS_PROMPT = ChatPromptTemplate.from_messages([
     ("system", "You are a senior IT interviewer."),
     ("human", """Bạn là một chuyên gia phỏng vấn IT senior.
 
-Hãy tạo {count} câu hỏi phỏng vấn chuyên môn dựa trên {mock_type} sau đây.
+Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn chuyên môn dựa trên {mock_type} sau đây.
 
 NGỮ CẢNH TRÍCH XUẤT TỪ {mock_type} (qua hệ thống RAG Pinecone VectorDB):
 {context}
 
-YÊU CẦU:
-- 100% câu hỏi phải tập trung vào chuyên môn kỹ thuật phần mềm, giải pháp công nghệ, tư duy hệ thống và kỹ năng liên quan đến công việc.
-- Nếu là CV: Khai thác sâu vào kiến trúc dự án, thư viện/framework đã dùng, các thách thức kỹ thuật ứng viên đã giải quyết.
-- Nếu là JD: Đặt các bài toán kỹ thuật kiểm tra năng lực đáp ứng yêu cầu tuyển dụng trong JD.
-- Tiếng Việt chuẩn mực.
-- BẮT BUỘC phải gọi function submit_interview_questions.
+YÊU CẦU BẮT BUỘC:
+1. Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không được trả về ít hơn {count} câu).
+2. 100% câu hỏi phải tập trung vào chuyên môn kỹ thuật phần mềm, giải pháp công nghệ, tư duy hệ thống và kỹ năng liên quan đến công việc.
+3. Nếu là CV: Khai thác sâu vào kiến trúc dự án, thư viện/framework đã dùng, các thách thức kỹ thuật ứng viên đã giải quyết.
+4. Nếu là JD: Đặt các bài toán kỹ thuật kiểm tra năng lực đáp ứng yêu cầu tuyển dụng trong JD.
+5. Tiếng Việt chuẩn mực.
+
+BẮT BUỘC phải gọi function {tool_name} với đúng {count} câu hỏi.
 """)
 ])

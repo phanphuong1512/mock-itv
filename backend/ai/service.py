@@ -119,6 +119,15 @@ def _build_cv_projects_section(notable_projects: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def make_question_tool(tool_name: str):
+    @tool
+    def submit_questions(questions: list[QuestionItem]) -> str:
+        """Schema tool for returning generated interview questions."""
+        return "ok"
+    submit_questions.name = tool_name
+    return submit_questions
+
+
 async def generate_questions(
     position: str,
     level: str,
@@ -127,11 +136,17 @@ async def generate_questions(
     cv_context: Optional[dict] = None,
 ) -> list[dict]:
     """Generate interview questions, optionally personalized with CV insights."""
+    import time
+    import random
+
     cfg = _get_cfg()
 
-    llm = build_llm(cfg, temperature=1).bind_tools(
-        [submit_interview_questions],
-        tool_choice="submit_interview_questions",
+    tool_name = f"submit_questions_{int(time.time())}_{random.randint(100, 999)}"
+    dynamic_tool = make_question_tool(tool_name)
+
+    llm = build_llm(cfg, temperature=0.7).bind_tools(
+        [dynamic_tool],
+        tool_choice=tool_name,
     )
 
     if cv_context:
@@ -140,6 +155,7 @@ async def generate_questions(
             level=level,
             tech_stack=", ".join(tech_stack),
             count=count,
+            tool_name=tool_name,
             cv_level=cv_context.get("candidate_level", ""),
             cv_confirmed_skills=", ".join(cv_context.get("confirmed_skills", [])),
             cv_skill_gaps=", ".join(cv_context.get("skill_gaps", [])),
@@ -154,6 +170,7 @@ async def generate_questions(
             level=level,
             tech_stack=", ".join(tech_stack),
             count=count,
+            tool_name=tool_name,
         )
 
     msg = await ainvoke_with_retry_429(

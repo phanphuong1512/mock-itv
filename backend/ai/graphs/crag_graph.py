@@ -81,23 +81,30 @@ async def rewrite_node(state: CRAGState) -> CRAGState:
     state["retries"] += 1
     return state
 
-from ..service import submit_interview_questions
+from ..service import make_question_tool
 
 async def generate_node(state: CRAGState) -> CRAGState:
+    import time
+    import random
+
     cfg = load_config()
     
     context_text = "\n\n---\n\n".join(state["context_docs"])
     if not context_text.strip():
         context_text = "Không thể lấy ngữ cảnh từ Vector DB. Hãy tự nghĩ ra các câu hỏi phổ biến."
 
-    llm = build_llm(cfg, temperature=1).bind_tools(
-        [submit_interview_questions],
-        tool_choice="submit_interview_questions",
+    tool_name = f"submit_questions_{int(time.time())}_{random.randint(100, 999)}"
+    dynamic_tool = make_question_tool(tool_name)
+
+    llm = build_llm(cfg, temperature=0.7).bind_tools(
+        [dynamic_tool],
+        tool_choice=tool_name,
     )
 
     messages = GENERATE_CUSTOM_QUESTIONS_PROMPT.format_messages(
         mock_type=state['mock_type'],
         count=state['count'],
+        tool_name=tool_name,
         context=context_text,
     )
 
