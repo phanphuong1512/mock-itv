@@ -497,27 +497,39 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
                     </p>
                   </div>
 
+                  {/* Button 1: Text Interview */}
                   <button
                     onClick={handleStartInterview}
-                    className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white rounded-2xl transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between cursor-pointer group"
                   >
-                    Bắt đầu phỏng vấn text
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                        <Play className="w-3.5 h-3.5 text-white fill-white" />
+                      </div>
+                      <span className="text-sm font-extrabold whitespace-nowrap">Bắt đầu phỏng vấn text</span>
+                    </div>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 whitespace-nowrap shrink-0">
+                      FREE
+                    </span>
                   </button>
 
+                  {/* Button 2: Voice Interview */}
                   <button
                     onClick={handleStartVoiceInterview}
-                    className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between cursor-pointer relative"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-between cursor-pointer group"
                   >
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-4 h-4 shrink-0" />
-                      <span className="whitespace-nowrap">Phỏng vấn giọng nói</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                        <Phone className="w-3.5 h-3.5 text-white" />
+                      </div>
+                      <span className="text-sm font-extrabold whitespace-nowrap">Phỏng vấn giọng nói</span>
                     </div>
                     {(!user || user.plan === 'free') ? (
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30 whitespace-nowrap shrink-0">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30 whitespace-nowrap shrink-0">
                         1 lần / 24h
                       </span>
                     ) : (
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap shrink-0">
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-400/25 text-emerald-300 border border-emerald-400/30 whitespace-nowrap shrink-0">
                         PRO
                       </span>
                     )}
