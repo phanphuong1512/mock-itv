@@ -63,8 +63,14 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ id: st
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/api/sessions/' + sessionId)
-      .then(res => res.json())
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    fetch('/api/sessions/' + sessionId, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Không thể tải bài mock hoặc không có quyền truy cập');
+        return res.json();
+      })
       .then((data: MockSessionResponse) => {
         setSessionDetail(data);
         if (data.questions) {
@@ -73,6 +79,7 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ id: st
       })
       .catch(err => console.error(err));
   }, [sessionId]);
+
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (modalRef.current && !modalRef.current.contains(e.target as Node)) {

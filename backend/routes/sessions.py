@@ -206,21 +206,37 @@ def list_sessions(
     db: Session = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
-    """Get all completed mock sessions (for history page)."""
-    query = db.query(MockSession)
-    if current_user:
-        query = query.filter((MockSession.user_id == current_user.id) | (MockSession.user_id.is_(None)))
-    sessions = query.order_by(MockSession.created_at.desc()).all()
+    """Get all completed mock sessions for the authenticated user only."""
+    if not current_user:
+        return []
+    
+    sessions = (
+        db.query(MockSession)
+        .filter(MockSession.user_id == current_user.id)
+        .order_by(MockSession.created_at.desc())
+        .all()
+    )
     return [s.to_dict() for s in sessions]
 
 
 @router.get("/{session_id}")
-def get_session(session_id: int, db: Session = Depends(get_db)):
+def get_session(
+    session_id: int, 
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """Get detailed session with all questions and evaluations."""
     session = db.query(MockSession).filter(MockSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Check ownership if session is bound to a user
+    if session.user_id is not None:
+        if not current_user or current_user.id != session.user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền xem bài phỏng vấn này")
+
     return session.to_dict(include_questions=True)
+
 
 
 @router.post("")

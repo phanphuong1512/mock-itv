@@ -16,9 +16,13 @@ export default function HistoryPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/sessions')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    fetch('/api/sessions', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(res => res.json())
       .then(data => {
+
         if (Array.isArray(data)) {
           const completedMocks = data
             .filter((session: MockSessionResponse) => session.status === 'completed')
