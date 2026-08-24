@@ -85,11 +85,18 @@ async def technical_grader_node(state: EvaluationState) -> EvaluationState:
     cfg = load_config()
     llm = build_llm(cfg, temperature=0.2).with_structured_output(TechEvalResult)
     
-    prompt = f"""Bạn là một Giám đốc Kỹ thuật. Hãy đánh giá kỹ năng chuyên môn (technical) của ứng viên cho vị trí {state['level']} {state['position']}.
-    Dưới đây là phần trả lời của họ:
-    {state['qa_block']}
-    
-    Hãy chấm điểm technical_score (0-100) cho từng câu, và overall_technical_score cho toàn bộ."""
+    prompt = f"""Bạn là một Giám đốc Kỹ thuật (Technical Director / VP of Engineering) rất nghiêm túc và công tâm.
+Hãy đánh giá kỹ năng chuyên môn (technical) của ứng viên cho vị trí {state['level']} {state['position']}.
+
+Dưới đây là danh sách câu hỏi và câu trả lời của ứng viên:
+{state['qa_block']}
+
+QUY TẮC CHẤM ĐIỂM CHUYÊN MÔN:
+1. Nếu câu trả lời TRỐNG, để trống, hoặc ứng viên nói "không biết", "em chịu", "bỏ qua": BẮT BUỘC chấm technical_score = 0!
+2. Nếu câu trả lời sai lệch hoặc hời hợt: Chấm điểm thấp (10 - 40 điểm).
+3. Nếu trả lời đúng trọng tâm cơ bản: Chấm điểm trung bình (50 - 70 điểm).
+4. Nếu trả lời xuất sắc, có phân tích kiến trúc, trade-offs, best practices: Chấm điểm cao (75 - 100 điểm).
+5. Hãy chấm technical_score (0-100) cho từng câu, và overall_technical_score cho toàn bộ."""
     
     try:
         res = await ainvoke_with_retry_429(llm, [HumanMessage(content=prompt)], retries=cfg.max_retries_429)
@@ -104,11 +111,15 @@ async def behavioral_grader_node(state: EvaluationState) -> EvaluationState:
     cfg = load_config()
     llm = build_llm(cfg, temperature=0.2).with_structured_output(BehavEvalResult)
     
-    prompt = f"""Bạn là chuyên gia nhân sự. Hãy đánh giá kỹ năng giao tiếp và giải quyết vấn đề của ứng viên cho vị trí {state['level']} {state['position']}.
-    Dưới đây là phần trả lời của họ:
-    {state['qa_block']}
-    
-    Hãy chấm điểm communication_score và problem_solving_score (0-100) cho từng câu, kèm theo tổng điểm."""
+    prompt = f"""Bạn là chuyên gia nhân sự và đánh giá năng lực phỏng vấn.
+Hãy đánh giá kỹ năng giao tiếp (communication) và tư duy giải quyết vấn đề (problem solving) của ứng viên cho vị trí {state['level']} {state['position']}.
+
+Dưới đây là phần trả lời của họ:
+{state['qa_block']}
+
+QUY TẮC CHẤM ĐIỂM:
+1. Nếu câu trả lời TRỐNG hoặc bỏ qua: BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
+2. Chấm điểm communication_score và problem_solving_score (0-100) chính xác theo độ rõ ràng, cấu trúc mạch lạc (STAR method) và tư duy logic."""
     
     try:
         res = await ainvoke_with_retry_429(llm, [HumanMessage(content=prompt)], retries=cfg.max_retries_429)
@@ -124,14 +135,15 @@ async def verbatim_highlighter_node(state: EvaluationState) -> EvaluationState:
     llm = build_llm(cfg, temperature=0.1).with_structured_output(VerbatimEvalResult)
     
     prompt = f"""Bạn là một chuyên gia rà soát nguyên văn. Hãy bóc tách chính xác nguyên văn câu trả lời của ứng viên thành các analysis_chunks.
-    Dưới đây là phần trả lời gốc:
-    {state['qa_block']}
-    
-    QUAN TRỌNG:
-    - analysis_chunks[].text khi nối lại phải khớp 100% với câu trả lời gốc của ứng viên.
-    - Phân loại type: success, warning, danger, normal.
-    - Cung cấp popupTitle, popupDesc giải thích lỗi sai.
-    - Cũng sinh ra feedback_chunks nhận xét chung cho câu."""
+Dưới đây là phần trả lời gốc:
+{state['qa_block']}
+
+QUAN TRỌNG:
+- analysis_chunks[].text khi nối lại phải khớp 100% với câu trả lời gốc của ứng viên.
+- Nếu câu trả lời của ứng viên trống (""), analysis_chunks chỉ cần 1 chunk với text="" và type="normal".
+- Phân loại type: success (ý đúng), warning (đúng một phần), danger (sai/thiếu), normal (từ nối).
+- Cung cấp popupTitle, popupDesc giải thích lỗi sai.
+- Cũng sinh ra feedback_chunks nhận xét chung cho câu."""
     
     if state.get('verbatim_errors'):
         prompt += f"\n\nLẦN TRƯỚC BẠN ĐÃ LÀM SAI:\n{state['verbatim_errors']}\nHÃY SỬA LẠI CHO ĐÚNG NGUYÊN VĂN!"
@@ -150,7 +162,6 @@ async def verbatim_verifier_node(state: EvaluationState) -> EvaluationState:
         evals = state['verbatim_chunks_per_q'].get('evaluations', [])
         for idx, q in enumerate(state['questions']):
             user_answer = q.get("user_answer", "") or ""
-            # Find matching eval
             ev = next((e for e in evals if e['question_index'] == idx + 1), None)
             if not ev:
                 raise VerbatimChunksError(f"Missing verbatim chunks for question {idx + 1}")
@@ -181,32 +192,68 @@ async def synthesizer_node(state: EvaluationState) -> EvaluationState:
     v_list = {e['question_index']: e for e in verb_evals.get('evaluations', [])}
     
     clean_evals = []
+    question_scores = []
     
-    overall_tech = tech_evals.get('overall_technical_score', 50)
-    overall_comm = behav_evals.get('overall_communication_score', 50)
-    overall_prob = behav_evals.get('overall_problem_solving_score', 50)
-    
-    overall_score = int((overall_tech + overall_comm + overall_prob) / 3)
-    
-    # Merge
+    # Merge per question
     for idx, q in enumerate(state['questions']):
         q_idx = idx + 1
+        user_ans = (q.get('user_answer') or '').strip()
         t = t_list.get(q_idx, {})
         b = b_list.get(q_idx, {})
         v = v_list.get(q_idx, {})
         
-        score = int((t.get('technical_score', 0) + b.get('communication_score', 0) + b.get('problem_solving_score', 0)) / 3)
-        if score == 0:
-            score = 50
+        # If user did not answer the question
+        if not user_ans:
+            score = 0
+            analysis_chunks = v.get('analysis_chunks') or [
+                {"id": f"q{q_idx}_a0", "text": "", "type": "normal", "popupTitle": "Không có câu trả lời", "popupDesc": "Ứng viên chưa cung cấp câu trả lời cho câu hỏi này.", "statusText": "0 điểm"}
+            ]
+            feedback_chunks = v.get('feedback_chunks') or [
+                {"id": f"q{q_idx}_f0", "text": "Ứng viên không cung cấp câu trả lời cho câu hỏi này. Cần chuẩn bị và trả lời đầy đủ.", "type": "danger", "popupTitle": "Chưa trả lời", "popupDesc": "Không có dữ liệu đánh giá.", "statusText": "0 điểm"}
+            ]
+            strengths = []
+            weaknesses = ["Ứng viên bỏ trống câu hỏi này, không cung cấp câu trả lời."]
+            recommendations = ["Cần ôn tập và hoàn thành câu trả lời trong các buổi phỏng vấn sau."]
+        else:
+            t_score = t.get('technical_score', 0)
+            c_score = b.get('communication_score', 0)
+            p_score = b.get('problem_solving_score', 0)
+            score = int((t_score * 0.6) + (c_score * 0.2) + (p_score * 0.2))
             
+            analysis_chunks = v.get('analysis_chunks') or [
+                {"id": f"q{q_idx}_a1", "text": user_ans, "type": "normal", "popupTitle": "Phân tích câu trả lời", "popupDesc": "", "statusText": ""}
+            ]
+            feedback_chunks = v.get('feedback_chunks') or []
+            strengths = t.get('technical_strengths', []) + b.get('behavioral_strengths', [])
+            weaknesses = t.get('technical_weaknesses', []) + b.get('behavioral_weaknesses', [])
+            recommendations = b.get('recommendations', [])
+
+        question_scores.append(score)
         clean_evals.append({
             "score": score,
-            "analysis_chunks": v.get('analysis_chunks', [{"id": "1", "text": q.get('user_answer', ''), "type": "normal", "popupTitle": "", "popupDesc": "", "statusText": ""}]),
-            "feedback_chunks": v.get('feedback_chunks', []),
-            "strengths": t.get('technical_strengths', []) + b.get('behavioral_strengths', []),
-            "weaknesses": t.get('technical_weaknesses', []) + b.get('behavioral_weaknesses', []),
-            "recommendations": b.get('recommendations', [])
+            "analysis_chunks": analysis_chunks,
+            "feedback_chunks": feedback_chunks,
+            "strengths": strengths,
+            "weaknesses": weaknesses,
+            "recommendations": recommendations
         })
+
+    # Overall Scores
+    if question_scores:
+        overall_score = int(sum(question_scores) / len(question_scores))
+    else:
+        overall_score = 0
+
+    overall_tech = tech_evals.get('overall_technical_score', 0)
+    overall_comm = behav_evals.get('overall_communication_score', 0)
+    overall_prob = behav_evals.get('overall_problem_solving_score', 0)
+
+    # If all answers were blank
+    if all(not (q.get('user_answer') or '').strip() for q in state['questions']):
+        overall_score = 0
+        overall_tech = 0
+        overall_comm = 0
+        overall_prob = 0
 
     cfg = load_config()
     try:
@@ -248,6 +295,7 @@ Cùng với đó, chỉ ra tối đa 3 điểm mạnh nổi bật nhất và 3 �
         }
     }
     return state
+
 
 
 def build_evaluation_graph():
