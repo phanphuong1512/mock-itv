@@ -63,7 +63,7 @@ export default function HistoryPage() {
               <div>
                 <h1 className="text-3xl font-extrabold tracking-tight mb-2">Lịch sử Mock của tôi</h1>
                 <p className="text-slate-500 dark:text-slate-400 text-base">
-                  Theo dõi, ôn tập và xem lại kết quả phỏng vấn giả lập của bạn với PhuongPV AI.
+                  Theo dõi, ôn tập và xem lại kết quả phỏng vấn giả lập của bạn với MockITV AI.
                 </p>
               </div>
 

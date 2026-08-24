@@ -35,7 +35,7 @@ from routes.payments import router as payments_router
 
 app = FastAPI(
     title="MockITV API",
-    description="Backend API for MockITV — AI-powered mock interview platform by PhuongPV",
+    description="Backend API for MockITV — AI-powered mock interview platform",
     version="1.0.0",
 )
 

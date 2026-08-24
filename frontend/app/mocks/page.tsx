@@ -92,7 +92,7 @@ export default function MocksPage() {
                 Vị trí mô phỏng tuyển dụng
               </h1>
               <p className="text-slate-600 dark:text-slate-400 text-base mb-4 max-w-2xl mx-auto">
-                Chọn vị trí mong muốn của bạn để phỏng vấn thử 1-1 với PhuongPV AI, nhận đánh giá chi tiết từng câu trả lời.
+                Chọn vị trí mong muốn của bạn để phỏng vấn thử 1-1 với MockITV AI, nhận đánh giá chi tiết từng câu trả lời.
               </p>
               
               <div className="flex items-start justify-center gap-2 mx-auto max-w-3xl text-[11px] text-slate-500 dark:text-slate-500 leading-relaxed mb-8">

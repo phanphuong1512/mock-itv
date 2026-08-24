@@ -14,8 +14,8 @@ export default function Footer() {
               <Sparkles className="absolute -top-3 -right-3 w-4 h-4 text-emerald-400" />
             </span>
           </Link>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 font-medium italic">
-            "© 2026 MockITV by PhuongPV"
+          <p className="text-sm text-slate-600 dark:text-slate-400 mb-8 font-medium">
+            © 2026 MockITV. All rights reserved.
           </p>
           <div className="flex items-center gap-3">
             <button className="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/5 border border-white/10 flex items-center justify-center text-slate-600 dark:text-slate-400 hover:text-white hover:bg-slate-200 dark:bg-white/10 transition-colors">

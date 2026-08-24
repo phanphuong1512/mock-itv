@@ -706,7 +706,7 @@ export default function CustomMockPage() {
   const handleStartInterview = async () => {
     if (!selectedJobId) return;
     setView('loading');
-    setLoadingStepText(cvText.trim() ? 'Đang phân tích CV và cá nhân hóa câu hỏi...' : 'Đang kết nối với PhuongPV AI và sinh câu hỏi...');
+    setLoadingStepText(cvText.trim() ? 'Đang phân tích CV và cá nhân hóa câu hỏi...' : 'Đang kết nối với AI và sinh câu hỏi...');
 
     try {
       const body: any = { job_id: selectedJobId, questions_count: currentJob?.rounds || 7 };
@@ -866,7 +866,7 @@ export default function CustomMockPage() {
                   Vị trí mô phỏng tuyển dụng
                 </h1>
                 <p className="text-slate-600 dark:text-slate-400 text-base mb-4 max-w-2xl mx-auto">
-                  Chọn vị trí mong muốn của bạn để phỏng vấn thử 1-1 với PhuongPV AI, nhận đánh giá chi tiết từng câu trả lời.
+                  Chọn vị trí mong muốn của bạn để phỏng vấn thử 1-1 với MockITV AI, nhận đánh giá chi tiết từng câu trả lời.
                 </p>
                 
                 <div className="flex items-start justify-center gap-2 mx-auto max-w-3xl text-[11px] text-slate-500 dark:text-slate-500 leading-relaxed mb-8">
@@ -1242,7 +1242,7 @@ export default function CustomMockPage() {
 
                     <div className="pt-4 border-t border-white/5 w-full flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-bold">
                       <Sparkles className="w-4 h-4 fill-emerald-500/10" />
-                      PhuongPV Premium (Không giới hạn)
+                      MockITV Premium (Không giới hạn)
                     </div>
                   </div>
                 </div>
