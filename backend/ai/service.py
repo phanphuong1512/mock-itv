@@ -31,7 +31,7 @@ from .schemas import CleanEvaluateSessionResult, CleanPerQuestionEvaluation, Cle
 from .schemas import QuestionItem, PerQuestionEvaluation, OverallEvaluation, NotableProject
 
 @tool
-def generate_interview_questions(questions: list[QuestionItem]) -> str:
+def submit_interview_questions(questions: list[QuestionItem]) -> str:
     """Schema tool for returning interview questions."""
     return "ok"
 
@@ -130,8 +130,8 @@ async def generate_questions(
     cfg = _get_cfg()
 
     llm = build_llm(cfg, temperature=1).bind_tools(
-        [generate_interview_questions],
-        tool_choice="generate_interview_questions",
+        [submit_interview_questions],
+        tool_choice="submit_interview_questions",
     )
 
     if cv_context:

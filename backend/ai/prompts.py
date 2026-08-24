@@ -17,7 +17,7 @@ Yêu cầu:
 - Có behavioral
 - Có problem-solving
 
-BẮT BUỘC phải gọi function generate_interview_questions.
+BẮT BUỘC phải gọi function submit_interview_questions.
 """)
 ])
 
@@ -119,7 +119,7 @@ Yêu cầu chung:
 - Tiếng Việt chuẩn mực, chuyên nghiệp.
 - Mix giữa Technical (chuyên môn), Problem-Solving (giải quyết vấn đề), và Behavioral (kỹ năng làm việc).
 
-BẮT BUỘC phải gọi function generate_interview_questions.
+BẮT BUỘC phải gọi function submit_interview_questions.
 """)
 ])
 
@@ -137,6 +137,6 @@ YÊU CẦU:
 - Nếu là CV: Khai thác sâu vào kiến trúc dự án, thư viện/framework đã dùng, các thách thức kỹ thuật ứng viên đã giải quyết.
 - Nếu là JD: Đặt các bài toán kỹ thuật kiểm tra năng lực đáp ứng yêu cầu tuyển dụng trong JD.
 - Tiếng Việt chuẩn mực.
-- BẮT BUỘC phải gọi function generate_interview_questions.
+- BẮT BUỘC phải gọi function submit_interview_questions.
 """)
 ])
