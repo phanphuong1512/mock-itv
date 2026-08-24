@@ -656,11 +656,13 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
                 </div>
               </div>
 
-              <div className="bg-gradient-to-r from-blue-900/10 to-transparent border border-blue-500/30 rounded-3xl p-6 lg:p-8 shadow-lg relative overflow-hidden">
-                <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 blur-xl rounded-full" />
-                <h2 className="text-lg lg:text-xl font-bold leading-relaxed text-slate-800 dark:text-white relative z-10">
-                  {sessionQuestions[currentQuestionIndex]?.questionText || sessionQuestions[currentQuestionIndex]?.text}
-                </h2>
+              <div className="bg-gradient-to-r from-blue-900/10 to-transparent border border-blue-500/30 rounded-3xl p-5 sm:p-6 shadow-lg relative overflow-hidden">
+                <div className="absolute -top-10 -left-10 w-24 h-24 bg-blue-500/10 blur-xl rounded-full pointer-events-none" />
+                <div className="max-h-[140px] sm:max-h-[160px] overflow-y-auto pr-3 relative z-10 custom-scrollbar">
+                  <h2 className="text-sm sm:text-base lg:text-[17px] font-bold leading-relaxed text-slate-800 dark:text-white whitespace-pre-line">
+                    {sessionQuestions[currentQuestionIndex]?.questionText || sessionQuestions[currentQuestionIndex]?.text}
+                  </h2>
+                </div>
               </div>
 
               <div className="flex flex-col gap-3">
