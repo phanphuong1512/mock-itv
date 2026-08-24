@@ -60,7 +60,7 @@ export default function CustomMockPage() {
   const cvFileInputRef = useRef<HTMLInputElement>(null);
 
   // Auth & Upgrade Modal State
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, openLoginModal } = useAuth();
   const isProOrPremium = Boolean(user && (user.plan === 'pro' || user.plan === 'premium'));
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
@@ -446,6 +446,17 @@ export default function CustomMockPage() {
 
   const handleStartVoiceInterview = async () => {
     if (!selectedJobId) return;
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    if (!token && !user) {
+      openLoginModal(
+        () => handleStartVoiceInterview(),
+        'Đăng nhập để phỏng vấn giọng nói',
+        'Đăng nhập bằng tài khoản Google để trò chuyện tương tác 1-1 với AI qua giọng nói.'
+      );
+      return;
+    }
+
     // Create AudioContext during user gesture — bypasses browser autoplay policy
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -457,15 +468,25 @@ export default function CustomMockPage() {
       const body: any = { job_id: selectedJobId, questions_count: currentJob?.rounds || 7 };
       if (cvText.trim()) body.cv_text = cvText.trim();
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      };
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        },
+        headers,
         body: JSON.stringify(body),
       });
+
+      if (response.status === 401) {
+        setView('custom-setup');
+        openLoginModal(
+          () => handleStartVoiceInterview(),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
       const data = await response.json();
       if (data && data.id) {
         setVoiceSessionId(data.id);
@@ -651,7 +672,11 @@ export default function CustomMockPage() {
     }
 
     if (!user) {
-      router.push('/login');
+      openLoginModal(
+        () => handleStartCustomInterview(mode),
+        'Đăng nhập để tạo Custom Mock',
+        'Đăng nhập bằng tài khoản Google để tải lên CV/JD và tạo phiên phỏng vấn cá nhân hóa.'
+      );
       return;
     }
 
@@ -685,6 +710,17 @@ export default function CustomMockPage() {
         headers,
         body: formData,
       });
+
+      if (response.status === 401) {
+        setView('custom-setup');
+        openLoginModal(
+          () => startActualCustomInterview(mode),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
+
       const data = await response.json();
       if (response.ok && data && data.id) {
         if (mode === 'voice') {
@@ -705,6 +741,17 @@ export default function CustomMockPage() {
 
   const handleStartInterview = async () => {
     if (!selectedJobId) return;
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    if (!token && !user) {
+      openLoginModal(
+        () => handleStartInterview(),
+        'Đăng nhập để bắt đầu phỏng vấn',
+        'Đăng nhập bằng tài khoản Google để hệ thống khởi tạo câu hỏi và lưu trữ lịch sử đánh giá của bạn.'
+      );
+      return;
+    }
+
     setView('loading');
     setLoadingStepText(cvText.trim() ? 'Đang phân tích CV và cá nhân hóa câu hỏi...' : 'Đang kết nối với AI và sinh câu hỏi...');
 
@@ -712,7 +759,6 @@ export default function CustomMockPage() {
       const body: any = { job_id: selectedJobId, questions_count: currentJob?.rounds || 7 };
       if (cvText.trim()) body.cv_text = cvText.trim();
 
-      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -723,11 +769,21 @@ export default function CustomMockPage() {
         headers,
         body: JSON.stringify(body)
       });
+
+      if (response.status === 401) {
+        setView('custom-setup');
+        openLoginModal(
+          () => handleStartInterview(),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
+
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data.detail || "Không thể khởi tạo session (lỗi server AI).");
       }
-
 
       if (data && data.id && Array.isArray(data.questions) && data.questions.length > 0) {
         setCurrentSessionId(data.id);

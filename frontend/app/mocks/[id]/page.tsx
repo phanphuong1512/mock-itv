@@ -41,7 +41,7 @@ const CATEGORIES = [
 export default function MockDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, openLoginModal } = useAuth();
   const [currentJob, setCurrentJob] = useState<JobResponse | null>(null);
 
   const [isStarting, setIsStarting] = useState(false);
@@ -150,9 +150,19 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
 
   const handleStartInterview = async () => {
     if (!currentJob) return;
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    if (!token && !user) {
+      openLoginModal(
+        () => handleStartInterview(),
+        'Đăng nhập để bắt đầu phỏng vấn',
+        'Đăng nhập bằng tài khoản Google để hệ thống khởi tạo câu hỏi và lưu trữ lịch sử đánh giá của bạn.'
+      );
+      return;
+    }
+
     setIsStarting(true);
     try {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
@@ -165,6 +175,16 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
         headers,
         body: JSON.stringify(body)
       });
+      
+      if (response.status === 401) {
+        setIsStarting(false);
+        openLoginModal(
+          () => handleStartInterview(),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
       
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
@@ -188,8 +208,12 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
     if (!currentJob) return;
 
     const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
-    if (!token) {
-      router.push('/login');
+    if (!token && !user) {
+      openLoginModal(
+        () => handleStartVoiceInterview(),
+        'Đăng nhập để phỏng vấn giọng nói',
+        'Đăng nhập bằng tài khoản Google để trò chuyện tương tác 1-1 với AI qua giọng nói.'
+      );
       return;
     }
 
@@ -198,6 +222,14 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
       const checkRes = await fetch('/api/voice/check-limit', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (checkRes.status === 401) {
+        openLoginModal(
+          () => handleStartVoiceInterview(),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
       if (checkRes.ok) {
         const checkData = await checkRes.json();
         if (!checkData.allowed) {
@@ -229,6 +261,16 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify(body)
       });
       
+      if (response.status === 401) {
+        setIsStarting(false);
+        openLoginModal(
+          () => handleStartVoiceInterview(),
+          'Phiên đăng nhập đã hết hạn',
+          'Vui lòng đăng nhập lại với Google để tiếp tục.'
+        );
+        return;
+      }
+      
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.detail || "Lỗi khởi tạo phiên phỏng vấn từ AI");
@@ -238,16 +280,16 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
       fetch('/api/voice/record-usage', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` }
-      }).catch(() => {});
+      }).catch(err => console.error("Record voice usage error:", err));
 
       const data = await response.json();
       if (data && data.id) {
-        router.push(`/interview/${data.id}?mode=voice`);
+        router.push(`/interview/${data.id}?voice=true`);
       } else {
         throw new Error("Không nhận được mã phiên phỏng vấn hợp lệ");
       }
     } catch (err: any) {
-      console.error("Failed to start session", err);
+      console.error("Failed to start voice session", err);
       alert(`⚠️ Lỗi khởi động phỏng vấn:\n${err.message || 'Vui lòng kiểm tra lại kết nối AI.'}`);
       setIsStarting(false);
     }

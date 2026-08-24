@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
+import LoginModal from './LoginModal';
 
 export interface User {
   id: number;
@@ -22,20 +23,38 @@ interface AuthContextProps {
   loginWithGoogle: (credential: string) => Promise<boolean>;
   refreshUser: () => Promise<void>;
   logout: () => void;
+  openLoginModal: (onSuccess?: () => void, title?: string, subtitle?: string) => void;
+  closeLoginModal: () => void;
 }
-
-
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 // Google OAuth Client ID
 const DEFAULT_GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '256548292398-25ualgvnf1ua3qrmkqmi3o51mvtjdk5m.apps.googleusercontent.com';
 
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loginModalState, setLoginModalState] = useState<{
+    isOpen: boolean;
+    onSuccess?: () => void;
+    title?: string;
+    subtitle?: string;
+  }>({ isOpen: false });
+
+  const openLoginModal = (onSuccess?: () => void, title?: string, subtitle?: string) => {
+    setLoginModalState({
+      isOpen: true,
+      onSuccess,
+      title,
+      subtitle,
+    });
+  };
+
+  const closeLoginModal = () => {
+    setLoginModalState((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -149,9 +168,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           loginWithGoogle,
           refreshUser,
           logout,
+          openLoginModal,
+          closeLoginModal,
         }}
       >
         {children}
+        <LoginModal
+          isOpen={loginModalState.isOpen}
+          onClose={closeLoginModal}
+          onSuccess={loginModalState.onSuccess}
+          title={loginModalState.title}
+          subtitle={loginModalState.subtitle}
+        />
       </AuthContext.Provider>
     </GoogleOAuthProvider>
   );

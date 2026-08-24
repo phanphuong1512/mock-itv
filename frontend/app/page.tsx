@@ -192,7 +192,7 @@ export default function Home() {
               </div>
             </div>
 
-            <Link href="#" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300">
+            <Link href="/mocks" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300">
               Mở phiên mock đầu tiên <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -206,7 +206,7 @@ export default function Home() {
             <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-12">
               Mỗi vị trí mock job được thiết kế để mô phỏng chính xác các vòng phỏng vấn thực tế tại các công ty IT ở Việt Nam, dựa trên kinh nghiệm thực chiến từ đội ngũ kỹ sư và founder của chúng tôi.
             </p>
-            <Link href="#" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300">
+            <Link href="/mocks" className="inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300">
               Xem vị trí mock <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
