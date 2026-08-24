@@ -500,19 +500,19 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
                   {/* Button 1: Text Interview */}
                   <button
                     onClick={handleStartInterview}
-                    className="w-full py-4 px-6 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white font-extrabold rounded-2xl text-base transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-orange-500 via-orange-600 to-red-500 hover:from-orange-600 hover:to-red-650 text-white font-extrabold rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-orange-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer whitespace-nowrap"
                   >
-                    <Play className="w-5 h-5 fill-white shrink-0" />
-                    <span>Bắt đầu phỏng vấn text</span>
+                    <Play className="w-4 h-4 fill-white shrink-0" />
+                    <span className="whitespace-nowrap">Phỏng vấn dạng text</span>
                   </button>
 
                   {/* Button 2: Voice Interview */}
                   <button
                     onClick={handleStartVoiceInterview}
-                    className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-base transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-3 cursor-pointer"
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-extrabold rounded-2xl text-sm sm:text-base transition-all shadow-lg shadow-blue-500/30 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2.5 cursor-pointer whitespace-nowrap"
                   >
-                    <Phone className="w-5 h-5 shrink-0" />
-                    <span>Phỏng vấn giọng nói</span>
+                    <Phone className="w-4 h-4 shrink-0" />
+                    <span className="whitespace-nowrap">Phỏng vấn giọng nói</span>
                   </button>
 
                   <div className="pt-3 border-t border-white/5 w-full flex items-center justify-center gap-1.5 text-xs text-emerald-400 font-bold">
