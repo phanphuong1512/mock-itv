@@ -146,10 +146,12 @@ Hãy đánh giá kỹ năng giao tiếp (communication) và tư duy giải quy�
 Dưới đây là phần trả lời của họ:
 {state['qa_block']}
 
-QUY TẮC CHẤM ĐIỂM:
-1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 65, 75, 85, 90). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
+QUY TẮC CHẤM ĐIỂM KỸ NĂNG MỀM & GIAO TIẾP:
+1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 70, 80, 85, 95). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
 2. Nếu câu trả lời TRỐNG hoặc bỏ qua: BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
-3. Chấm điểm communication_score và problem_solving_score (0-100) chính xác theo độ rõ ràng, cấu trúc mạch lạc (STAR method) và tư duy logic.
+3. Đối với câu hỏi Kỹ thuật/Kiến trúc: Đánh giá communication_score dựa trên độ rõ ràng, mạch lạc, thuật ngữ chuẩn xác; đánh giá problem_solving_score dựa trên tính toàn diện của giải pháp và phân tích trade-off (không ép buộc STAR cho câu hỏi lý thuyết).
+4. Nếu câu trả lời có cấu trúc rất tốt, rõ ràng, chi tiết: Chấm điểm cao (80 - 95 điểm).
+5. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu, và overall cho toàn bộ.
 
 BẮT BUỘC gọi function {tool_name}."""
     
