@@ -116,10 +116,20 @@ async def stt_endpoint(file: UploadFile = File(...), language: str = Form("vi"))
 
 
 @router.post("/sessions/{session_id}/message")
-async def voice_message(session_id: int, req: VoiceMessageRequest, db: Session = Depends(get_db)):
+async def voice_message(
+    session_id: int,
+    req: VoiceMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     session = db.query(MockSession).filter(MockSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Ownership check
+    if session.user_id is not None:
+        if not current_user or current_user.id != session.user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên phỏng vấn này")
 
     job = session.job
 
@@ -145,11 +155,21 @@ async def voice_message(session_id: int, req: VoiceMessageRequest, db: Session =
 
 
 @router.post("/sessions/{session_id}/message-stream")
-async def voice_message_stream(session_id: int, req: VoiceMessageRequest, db: Session = Depends(get_db)):
+async def voice_message_stream(
+    session_id: int,
+    req: VoiceMessageRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """SSE streaming version — streams AI response sentence-by-sentence."""
     session = db.query(MockSession).filter(MockSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Ownership check
+    if session.user_id is not None:
+        if not current_user or current_user.id != session.user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền truy cập phiên phỏng vấn này")
 
     job = session.job
 
@@ -190,12 +210,27 @@ async def voice_message_stream(session_id: int, req: VoiceMessageRequest, db: Se
 
 
 @router.get("/check-limit")
-def check_voice_limit(current_user: Optional[User] = Depends(get_optional_user)):
+def check_voice_limit(
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
     """Check if the current user is allowed to perform a voice interview (free plan = 1 per 24h)."""
     if not current_user:
         return {"allowed": False, "reason": "login_required", "plan": "none", "hoursLeft": 0}
 
+    now = datetime.now(timezone.utc)
     plan = current_user.plan or "free"
+
+    # Check expiration if pro or premium
+    if plan in ("pro", "premium") and current_user.plan_expired_at:
+        expiry = current_user.plan_expired_at
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=timezone.utc)
+        if now > expiry:
+            current_user.plan = "free"
+            plan = "free"
+            db.commit()
+
     if plan in ("pro", "premium"):
         return {"allowed": True, "plan": plan, "remainingSeconds": 0, "hoursLeft": 0}
 
@@ -203,7 +238,6 @@ def check_voice_limit(current_user: Optional[User] = Depends(get_optional_user))
     if not current_user.last_voice_session_at:
         return {"allowed": True, "plan": "free", "remainingSeconds": 0, "hoursLeft": 0}
 
-    now = datetime.now(timezone.utc)
     last_voice = current_user.last_voice_session_at
     if last_voice.tzinfo is None:
         last_voice = last_voice.replace(tzinfo=timezone.utc)

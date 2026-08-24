@@ -62,7 +62,12 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
 
   // Fetch session data
   useEffect(() => {
-    fetch(`/api/sessions/${sessionId}`)
+    const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+    fetch(`/api/sessions/${sessionId}`, {
+      headers: {
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+    })
       .then(res => {
         if (!res.ok) throw new Error("Không tìm thấy session.");
         return res.json();
@@ -268,9 +273,13 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     isPlayingRef.current = false;
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const res = await fetch(`/api/voice/sessions/${sessionId}/message-stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ message: text, history }),
       });
 
@@ -534,7 +543,13 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
         ? `http://localhost:8000/api/sessions/${sessionId}/evaluate`
         : `/api/sessions/${sessionId}/evaluate`;
         
-      const res = await fetch(apiUrl, { method: 'POST' });
+      const evalToken = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          ...(evalToken ? { 'Authorization': `Bearer ${evalToken}` } : {}),
+        },
+      });
       if (res.ok) {
         clearInterval(interval);
         setLoadingStepText('Phân tích hoàn tất! Đang mở bảng điểm của bạn...');
@@ -574,9 +589,13 @@ export default function InterviewPage({ params }: { params: Promise<{ id: string
     setLoadingStepText(`Đang lưu câu hỏi ${currentQuestionIndex + 1}...`);
 
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       await fetch(`/api/sessions/${sessionId}/answer`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ question_id: currentQ.id, answer: userAnswerText })
       });
     } catch (err) {

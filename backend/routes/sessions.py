@@ -16,6 +16,43 @@ from ai_service import analyze_cv, generate_questions, batch_evaluate_session, g
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
+# ---- Helpers ----
+
+def _check_credits_and_deduct(user: Optional[User], db) -> None:
+    """
+    Validate that the user has an active plan with remaining credits.
+    Deducts 1 credit atomically. Raises HTTPException on failure.
+    """
+    from datetime import datetime, timezone
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Bạn cần đăng nhập để bắt đầu phỏng vấn")
+
+    # Check plan expiration (pro/premium only)
+    if user.plan in ("pro", "premium") and user.plan_expired_at:
+        if user.plan_expired_at.tzinfo is None:
+            expiry = user.plan_expired_at.replace(tzinfo=timezone.utc)
+        else:
+            expiry = user.plan_expired_at
+        if datetime.now(timezone.utc) > expiry:
+            # Plan expired — downgrade to free
+            user.plan = "free"
+            user.credits = min(user.credits or 0, 4)  # cap at free tier credits
+            db.commit()
+
+    # Check credits
+    credits = user.credits or 0
+    if credits <= 0:
+        raise HTTPException(
+            status_code=403,
+            detail="Bạn đã hết lượt phỏng vấn. Vui lòng nâng cấp gói để tiếp tục."
+        )
+
+    # Deduct 1 credit
+    user.credits = credits - 1
+    db.flush()
+
+
 # ---- Request Models ----
 
 class AnalyzeCVRequest(BaseModel):
@@ -64,8 +101,15 @@ def _extract_text_from_docx(content: bytes) -> str:
 # ---- Endpoints ----
 
 @router.post("/analyze-cv")
-async def analyze_cv_endpoint(req: AnalyzeCVRequest, db: Session = Depends(get_db)):
+async def analyze_cv_endpoint(
+    req: AnalyzeCVRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """Analyze a candidate's CV against a job and return structured insights."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để phân tích CV")
+
     job = db.query(MockJob).filter(MockJob.id == req.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -79,8 +123,14 @@ async def analyze_cv_endpoint(req: AnalyzeCVRequest, db: Session = Depends(get_d
 
 
 @router.post("/parse-cv")
-async def parse_cv_file(file: UploadFile = File(...)):
+async def parse_cv_file(
+    file: UploadFile = File(...),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """Extract plain text from an uploaded PDF or DOCX CV file (max 5 MB)."""
+    if not current_user:
+        raise HTTPException(status_code=401, detail="Vui lòng đăng nhập để tải lên CV")
+
     filename = (file.filename or "").lower()
     content = await file.read()
 
@@ -120,6 +170,9 @@ async def create_custom_mock_session(
     """
     Upload CV/JD, process it, upload to Pinecone, and generate a custom mock session.
     """
+    # Check credits and deduct 1
+    _check_credits_and_deduct(current_user, db)
+
     filename = (file.filename or "").lower()
     content = await file.read()
 
@@ -151,7 +204,7 @@ async def create_custom_mock_session(
 
     session = MockSession(
         job_id=job.id,
-        user_id=current_user.id if current_user else None,
+        user_id=current_user.id,
         status="in_progress"
     )
     db.add(session)
@@ -249,6 +302,9 @@ async def create_session(
     Create a new mock interview session.
     AI generates interview questions via function calling.
     """
+    # Check credits and deduct 1
+    _check_credits_and_deduct(current_user, db)
+
     job = db.query(MockJob).filter(MockJob.id == req.job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -256,7 +312,7 @@ async def create_session(
     # Create session
     session = MockSession(
         job_id=job.id,
-        user_id=current_user.id if current_user else None,
+        user_id=current_user.id,
         status="in_progress"
     )
     db.add(session)
@@ -311,8 +367,21 @@ async def create_session(
 
 
 @router.post("/{session_id}/answer")
-def submit_answer(session_id: int, req: SubmitAnswerRequest, db: Session = Depends(get_db)):
+def submit_answer(
+    session_id: int,
+    req: SubmitAnswerRequest,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """Submit a user answer for a specific question."""
+    # Ownership check
+    session = db.query(MockSession).filter(MockSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id is not None:
+        if not current_user or current_user.id != session.user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền trả lời bài phỏng vấn này")
+
     question = db.query(SessionQuestion).filter(
         SessionQuestion.id == req.question_id,
         SessionQuestion.session_id == session_id,
@@ -327,7 +396,11 @@ def submit_answer(session_id: int, req: SubmitAnswerRequest, db: Session = Depen
 
 
 @router.post("/{session_id}/evaluate")
-async def evaluate_session(session_id: int, db: Session = Depends(get_db)):
+async def evaluate_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
     """
     Trigger AI evaluation for entire session using batching.
     
@@ -337,6 +410,11 @@ async def evaluate_session(session_id: int, db: Session = Depends(get_db)):
     session = db.query(MockSession).filter(MockSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Ownership check
+    if session.user_id is not None:
+        if not current_user or current_user.id != session.user_id:
+            raise HTTPException(status_code=403, detail="Bạn không có quyền chấm điểm bài phỏng vấn này")
 
     job = session.job
     questions = session.questions

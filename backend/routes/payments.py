@@ -106,7 +106,11 @@ def create_payment_order(
 # ── Polling: Check Order Status ───────────────────────────────────────
 
 @router.get("/order-status/{order_code}")
-def check_order_status(order_code: str, db: Session = Depends(get_db)):
+def check_order_status(
+    order_code: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """Check payment status for real-time frontend feedback."""
     transaction = (
         db.query(PaymentTransaction)
@@ -115,6 +119,9 @@ def check_order_status(order_code: str, db: Session = Depends(get_db)):
     )
     if not transaction:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
+
+    if transaction.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Không có quyền xem đơn hàng này")
 
     return {
         "orderCode": transaction.order_code,
@@ -143,16 +150,22 @@ async def sepay_webhook(
 
     print(f"[SePay Webhook] 🔔 Received transaction notification: {payload}")
 
-    # 1. Verify HMAC Signature if secret is configured and header provided
-    if SEPAY_WEBHOOK_SECRET and x_sepay_signature:
+    # 1. Verify Webhook Authenticity (HMAC or API Key)
+    if SEPAY_WEBHOOK_SECRET:
         raw_body = await request.body()
         expected_sig = hmac.new(
             SEPAY_WEBHOOK_SECRET.encode("utf-8"),
             raw_body,
             hashlib.sha256
         ).hexdigest()
-        if not hmac.compare_digest(expected_sig, x_sepay_signature):
-            print("[SePay Webhook] ⚠️ Invalid HMAC signature, proceeding with content verification")
+        
+        sig_valid = x_sepay_signature and hmac.compare_digest(expected_sig, x_sepay_signature)
+        auth_header = request.headers.get("Authorization", "")
+        apikey_valid = auth_header in (f"Apikey {SEPAY_WEBHOOK_SECRET}", SEPAY_WEBHOOK_SECRET)
+
+        if not sig_valid and not apikey_valid:
+            print("[SePay Webhook] ❌ Unauthorized webhook request: invalid signature/API key")
+            raise HTTPException(status_code=401, detail="Unauthorized webhook signature")
 
     # 2. Extract transaction fields from SePay payload
     content = str(payload.get("content") or "").strip().upper()
@@ -192,12 +205,17 @@ async def sepay_webhook(
         print(f"[SePay Webhook] ℹ️ No matching pending order for content: '{combined_text}'")
         return {"success": True, "message": "Ignored (not an ITV order)"}
 
-    # 4. Validate Amount
+    # 4. Idempotency Check
+    if matched_transaction.status == "completed":
+        print(f"[SePay Webhook] ℹ️ Order {matched_transaction.order_code} already completed. Skipping.")
+        return {"success": True, "message": "Order already completed"}
+
+    # 5. Validate Amount
     if transfer_amount < matched_transaction.amount:
         print(f"[SePay Webhook] ⚠️ Amount mismatch: expected {matched_transaction.amount}, got {transfer_amount}")
         return {"success": False, "detail": "Transfer amount is less than order amount"}
 
-    # 5. Fulfill Order: Upgrade User Plan & Add Credits
+    # 6. Fulfill Order: Upgrade User Plan & Add Credits
     matched_transaction.status = "completed"
     matched_transaction.gateway_transaction_id = gateway_id
     matched_transaction.completed_at = datetime.now(timezone.utc)
@@ -214,3 +232,4 @@ async def sepay_webhook(
 
     db.commit()
     return {"success": True, "message": "Payment verified and user subscription updated"}
+

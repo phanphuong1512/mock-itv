@@ -112,7 +112,6 @@ def login_with_google(req: GoogleLoginRequest, db: Session = Depends(get_db)):
     # 1. Verify with Google Auth
     try:
         request_adapter = google_requests.Request()
-        # Verify token with audience check if configured, otherwise verify signature
         audience = GOOGLE_CLIENT_ID if GOOGLE_CLIENT_ID else None
         id_info = id_token.verify_oauth2_token(
             credential,
@@ -121,15 +120,21 @@ def login_with_google(req: GoogleLoginRequest, db: Session = Depends(get_db)):
             clock_skew_in_seconds=10,
         )
     except Exception as e:
-        # If standard verification fails, attempt unverified decode for development/testing
-        try:
-            id_info = jwt.decode(credential, options={"verify_signature": False})
-            if not id_info.get("email"):
-                raise ValueError("Missing email in payload")
-        except Exception:
+        is_dev = os.getenv("ENVIRONMENT", "").lower() in ("dev", "development", "local")
+        if is_dev:
+            try:
+                id_info = jwt.decode(credential, options={"verify_signature": False})
+                if not id_info.get("email"):
+                    raise ValueError("Missing email in payload")
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"Invalid Google token: {str(e)}",
+                )
+        else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"Invalid Google token: {str(e)}",
+                detail=f"Invalid Google token verification: {str(e)}",
             )
 
     email = id_info.get("email")

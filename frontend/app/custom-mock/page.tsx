@@ -262,9 +262,13 @@ export default function CustomMockPage() {
 
     setIsAIThinking(true);
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const res = await fetch(`/api/voice/sessions/${sessionId}/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ message: text, history }),
       });
       if (!res.ok) throw new Error('Voice message failed');
@@ -453,9 +457,13 @@ export default function CustomMockPage() {
       const body: any = { job_id: selectedJobId, questions_count: currentJob?.rounds || 7 };
       if (cvText.trim()) body.cv_text = cvText.trim();
 
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
       const response = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(body),
       });
       const data = await response.json();
@@ -519,7 +527,13 @@ export default function CustomMockPage() {
 
     if (voiceSessionId) {
       try {
-        const res = await fetch(`/api/sessions/${voiceSessionId}/evaluate`, { method: 'POST' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+        const res = await fetch(`/api/sessions/${voiceSessionId}/evaluate`, {
+          method: 'POST',
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+        });
         if (res.ok) {
           clearInterval(interval);
           setLoadingStepText('Phân tích hoàn tất! Đang mở bảng điểm...');
@@ -552,7 +566,14 @@ export default function CustomMockPage() {
     formData.append('file', file);
 
     try {
-      const res = await fetch('/api/sessions/parse-cv', { method: 'POST', body: formData });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+      const res = await fetch('/api/sessions/parse-cv', {
+        method: 'POST',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: formData
+      });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.detail || 'Upload thất bại');
@@ -593,7 +614,12 @@ export default function CustomMockPage() {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`);
+          const pollToken = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`, {
+            headers: {
+              ...(pollToken ? { 'Authorization': `Bearer ${pollToken}` } : {})
+            }
+          });
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             if (statusData.status === 'completed') {
@@ -730,9 +756,13 @@ export default function CustomMockPage() {
     // Call submit endpoint if sessionId exists
     if (currentSessionId) {
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
         await fetch(`/api/sessions/${currentSessionId}/answer`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ question_id: currentQ.id, answer: userAnswerText })
         });
       } catch (err) {
@@ -772,8 +802,12 @@ export default function CustomMockPage() {
 
     if (currentSessionId) {
       try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
         const res = await fetch(`/api/sessions/${currentSessionId}/evaluate`, {
-          method: 'POST'
+          method: 'POST',
+          headers: {
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
         });
         if (res.ok) {
           clearInterval(interval);

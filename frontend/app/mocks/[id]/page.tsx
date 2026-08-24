@@ -93,7 +93,12 @@ export default function MockDetailPage({ params }: { params: Promise<{ id: strin
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = setInterval(async () => {
         try {
-          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`);
+          const pollToken = typeof window !== 'undefined' ? localStorage.getItem('mockitv_token') : null;
+          const statusRes = await fetch(`/api/payments/order-status/${data.order.orderCode}`, {
+            headers: {
+              ...(pollToken ? { 'Authorization': `Bearer ${pollToken}` } : {})
+            }
+          });
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             if (statusData.status === 'completed') {
