@@ -529,21 +529,37 @@ export default function HistoryDetailPage({ params }: { params: Promise<{ id: st
               <div className="p-6">
                 <ul className="space-y-2.5">
                   {sessionDetail.resources.length > 0 ? (
-                    sessionDetail.resources.map((res: string, idx: number) => {
-                      const url = res.startsWith('http://') || res.startsWith('https://')
-                        ? res
-                        : `https://www.google.com/search?q=${encodeURIComponent(res)}`;
+                    sessionDetail.resources.map((res: any, idx: number) => {
+                      let title = '';
+                      let url = '';
+
+                      if (typeof res === 'object' && res !== null) {
+                        title = res.title || res.name || 'Tài liệu hướng dẫn';
+                        url = res.url || '';
+                      } else if (typeof res === 'string') {
+                        if (res.includes('|')) {
+                          const parts = res.split('|');
+                          title = parts[0].trim();
+                          url = parts.slice(1).join('|').trim();
+                        } else {
+                          title = res.trim();
+                          url = (res.startsWith('http://') || res.startsWith('https://')) ? res.trim() : '';
+                        }
+                      }
+
+                      const finalUrl = url || (title.startsWith('http') ? title : `https://www.google.com/search?q=${encodeURIComponent(title)}`);
+
                       return (
                         <li key={idx}>
                           <a
-                            href={url}
+                            href={finalUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center justify-between text-sm sm:text-base text-slate-700 dark:text-slate-300 hover:text-emerald-500 dark:hover:text-emerald-400 cursor-pointer group/link p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
                           >
                             <span className="flex items-center gap-2.5">
                               <BookOpen className="w-4 h-4 text-emerald-500 shrink-0" />
-                              <span>{res}</span>
+                              <span>{title}</span>
                             </span>
                             <ExternalLink className="w-4 h-4 opacity-0 group-hover/link:opacity-100 -translate-x-1 group-hover/link:translate-x-0 transition-all text-emerald-500 shrink-0" />
                           </a>

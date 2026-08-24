@@ -44,11 +44,15 @@ class BehavQuestionEval(BaseModel):
     behavioral_weaknesses: list[str] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
 
+class ResourceItem(BaseModel):
+    title: str = Field(description="Tên tài liệu, bài viết hướng dẫn chuyên sâu hoặc trang chủ đề")
+    url: str = Field(description="Đường link URL trực tiếp và chính xác tới tài liệu đó (ví dụ: https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/...)")
+
 class BehavEvalResult(BaseModel):
     evaluations: list[BehavQuestionEval]
     overall_communication_score: int
     overall_problem_solving_score: int
-    resources: list[str] = Field(default_factory=list)
+    resources: list[ResourceItem] = Field(default_factory=list)
 
 class AnalysisChunk(BaseModel):
     id: str
@@ -152,6 +156,7 @@ QUY TẮC CHẤM ĐIỂM KỸ NĂNG MỀM & GIAO TIẾP:
 3. Đối với câu hỏi Kỹ thuật/Kiến trúc: Đánh giá communication_score dựa trên độ rõ ràng, mạch lạc, thuật ngữ chuẩn xác; đánh giá problem_solving_score dựa trên tính toàn diện của giải pháp và phân tích trade-off (không ép buộc STAR cho câu hỏi lý thuyết).
 4. Nếu câu trả lời có cấu trúc rất tốt, rõ ràng, chi tiết: Chấm điểm cao (80 - 95 điểm).
 5. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu.
+6. TÀI LIỆU GỢI Ý (resources): Hãy gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác (ví dụ: các trang docs chính thức như https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/..., https://docs.python.org/..., https://arxiv.org/..., https://kubernetes.io/docs/...).
 
 BẮT BUỘC gọi function {tool_name}."""
     
@@ -437,7 +442,11 @@ async def run_evaluation_graph(position: str, level: str, questions: list[dict])
                 "strengths": [],
                 "weaknesses": ["Chưa hoàn thành câu trả lời cho bất kỳ câu hỏi nào trong phiên phỏng vấn."],
                 "topics_to_learn": ["Ôn tập toàn diện kiến thức chuyên môn và kỹ năng phỏng vấn"],
-                "resources": ["Tài liệu ôn tập kiến thức chuyên ngành và cấu trúc trả lời STAR"]
+                "resources": [
+                    {"title": "System Design Primer (GitHub)", "url": "https://github.com/donnemartin/system-design-primer"},
+                    {"title": "LeetCode Interview Preparation", "url": "https://leetcode.com/explore/"},
+                    {"title": "Kỹ thuật phỏng vấn cấu trúc STAR", "url": "https://en.wikipedia.org/wiki/Situation,_task,_action_and_result"}
+                ]
             }
         }
 
