@@ -422,28 +422,41 @@ export default function PricingPage() {
                     <div className="text-blue-400">Miễn phí</div>
                     <div className="text-[9px] uppercase tracking-wider bg-blue-900/40 text-blue-300 inline-block px-2 py-0.5 rounded mt-1">Mặc định</div>
                   </th>
-                  <th className="py-4 font-bold text-center w-[20%]">Pro (99k)</th>
-                  <th className="py-4 font-bold text-center w-[20%]">Premium (199k)</th>
+                  <th className="py-4 font-bold text-center w-[20%]">
+                    <div className="text-blue-500 font-black">Pro (19k)</div>
+                    <div className="text-[9px] uppercase tracking-wider bg-gradient-to-r from-red-500 to-amber-500 text-white inline-block px-2 py-0.5 rounded-full mt-1 font-bold">🔥 Giảm 80%</div>
+                  </th>
+                  <th className="py-4 font-bold text-center w-[20%]">
+                    <div className="text-amber-500 font-black">Premium (39k)</div>
+                    <div className="text-[9px] uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30 inline-block px-2 py-0.5 rounded-full mt-1 font-bold">🔥 Tiết kiệm 80%</div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="text-sm">
-                <TableRow icon={<MessageCircle className="w-4 h-4" />} title="Phỏng vấn AI" free="4" pro="25" mock="100" />
-                <TableRow icon={<FileText className="w-4 h-4" />} title="Sàng lọc & Phân tích CV" free="Có" pro="Không giới hạn" mock="Không giới hạn" />
-                <TableRow icon={<Repeat className="w-4 h-4" />} title="Lượt luyện tập / tháng" free="4" pro="25" mock="100" />
+                <TableRow icon={<MessageCircle className="w-4 h-4" />} title="Phỏng vấn AI" free="4 lượt" pro="30 lượt" mock="100 lượt" />
+                <TableRow icon={<Repeat className="w-4 h-4" />} title="Lượt luyện tập / tháng" free="4 lượt" pro="30 lượt" mock="100 lượt" />
+                <TableRow icon={<FileText className="w-4 h-4" />} title="Sàng lọc & Phân tích CV" free="Cơ bản" pro="Không giới hạn" mock="Không giới hạn" />
                 <TableRow icon={<GitCommit className="w-4 h-4" />} title="Pipeline phỏng vấn đa vòng" free={true} pro={true} mock={true} />
-                <TableRow icon={<Code2 className="w-4 h-4" />} title="Phỏng vấn Coding & System" free={false} pro={true} mock={true} />
-                <TableRow icon={<Mic className="w-4 h-4" />} title="Phỏng vấn Giọng nói (Voice AI)" free={false} pro={true} mock={true} />
+                <TableRow icon={<Code2 className="w-4 h-4" />} title="Phỏng vấn Coding & System" free={true} pro={true} mock={true} />
+                <TableRow icon={<Mic className="w-4 h-4" />} title="Phỏng vấn Giọng nói (Voice AI)" free="1 lần / 24h" pro="Không giới hạn" mock="Không giới hạn" />
                 <TableRow icon={<Users className="w-4 h-4" />} title="Custom Mock từ CV/JD cá nhân" free={false} pro={true} mock={true} />
                 <TableRow icon={<FastForward className="w-4 h-4" />} title="Ưu tiên hàng đợi AI" free={false} pro={true} mock={true} />
                 <tr className="border-t border-foreground/10">
                   <td className="py-6 font-bold flex items-center gap-3">
-                    <Banknote className="w-4 h-4 text-foreground/60" /> Giá
+                    <Banknote className="w-4 h-4 text-foreground/60" /> Giá ưu đãi
                   </td>
                   <td className="py-6 font-bold text-center text-lg">0đ</td>
-                  <td className="py-6 font-bold text-center text-lg text-blue-500">99k<span className="text-xs text-foreground/60 font-normal">/tháng</span></td>
-                  <td className="py-6 font-bold text-center text-lg text-amber-500">199k<span className="text-xs text-foreground/60 font-normal">/tháng</span></td>
+                  <td className="py-6 font-bold text-center text-lg text-blue-500">
+                    <div>19k<span className="text-xs text-foreground/60 font-normal">/tháng</span></div>
+                    <div className="text-xs text-foreground/40 line-through font-normal">99k</div>
+                  </td>
+                  <td className="py-6 font-bold text-center text-lg text-amber-500">
+                    <div>39k<span className="text-xs text-foreground/60 font-normal">/tháng</span></div>
+                    <div className="text-xs text-foreground/40 line-through font-normal">199k</div>
+                  </td>
                 </tr>
               </tbody>
+
             </table>
           </div>
 
