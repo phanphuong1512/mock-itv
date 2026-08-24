@@ -107,21 +107,27 @@ async def technical_grader_node(state: EvaluationState) -> EvaluationState:
         tool_choice=tool_name
     )
     
-    prompt = f"""Bạn là một Giám đốc Kỹ thuật (Technical Director / VP of Engineering) rất nghiêm túc và công tâm.
+    prompt = f"""Bạn là một Giám đốc Kỹ thuật (Technical Director / VP of Engineering) rất nghiêm túc, công tâm và đánh giá chuẩn mực.
 Hãy đánh giá kỹ năng chuyên môn (technical) của ứng viên cho vị trí {state['level']} {state['position']}.
 
 Dưới đây là danh sách câu hỏi và câu trả lời của ứng viên:
 {state['qa_block']}
 
-QUY TẮC CHẤM ĐIỂM CHUYÊN MÔN:
-1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 65, 75, 85, 90). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
-2. Nếu câu trả lời TRỐNG, để trống, hoặc cợt nhả, thiếu nghiêm túc (ví dụ: "em chịu", "em khóc", "không biết", "bỏ qua", "chẳng rút được gì"): BẮT BUỘC chấm technical_score = 0!
-3. Nếu câu trả lời sai lệch hoặc hời hợt: Chấm điểm thấp (10 - 40 điểm).
-4. Nếu trả lời đúng trọng tâm cơ bản: Chấm điểm trung bình (50 - 70 điểm).
-5. Nếu trả lời xuất sắc, có phân tích kiến trúc, trade-offs, best practices: Chấm điểm cao (75 - 100 điểm).
-6. Hãy chấm technical_score (0-100) cho từng câu.
-7. TOPICS TO LEARN (topics_to_learn): Chỉ ra 3-6 chủ đề kiến thức chuyên môn cốt lõi mà ứng viên cần học/ôn tập thêm.
-8. TÀI LIỆU GỢI Ý (resources): BẮT BUỘC gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác (ví dụ: các trang docs chính thức như https://docs.oracle.com/..., https://docs.spring.io/..., https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/..., https://docs.python.org/..., https://kubernetes.io/docs/...).
+QUY TẮC CHẤM ĐIỂM CHUYÊN MÔN CÔNG BẰNG & CHUẨN HÓA (CALIBRATED FAIR SCORING):
+1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm. TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
+2. NGUYÊN TẮC CÔ ĐỌNG & CHÍNH XÁC (CONCISENESS & ACCURACY RULE - CỰC KỲ QUAN TRỌNG):
+   - TUYỆT ĐỐI KHÔNG phạt điểm câu trả lời ngắn (150 - 300 ký tự / 2-3 câu).
+   - Trong phỏng vấn kỹ thuật thực tế, ứng viên trả lời ngắn gọn, đi thẳng vào bản chất, nêu đúng cơ chế cốt lõi (Core Mechanism / Underlying Principle) và dùng đúng thuật ngữ chuyên ngành PHẢI ĐƯỢC CHẤM ĐIỂM XUẤT SẮC (85 - 98 ĐIỂM).
+   - Nếu câu trả lời đúng trọng tâm và không có sai sót nghiêm trọng: BẮT BUỘC chấm từ 80 ĐIỂM TRỞ LÊN (TUYỆT ĐỐI KHÔNG CHẤM 40 - 50 ĐIỂM CHO CÂU TRẢ LỜI ĐÚNG).
+3. ĐỊNH MỨC THANG ĐIỂM:
+   - 90 - 100 điểm (Xuất sắc / Senior Standard): Nêu đúng 100% bản chất kỹ thuật, mục đích thiết kế, cơ chế hoạt động, thuật ngữ chuẩn xác (dù ngắn gọn 2-3 câu hay giải thích chi tiết).
+   - 75 - 89 điểm (Tốt / Đạt chuẩn Middle): Đúng trọng tâm và giải thích được nguyên lý chính của giải pháp.
+   - 50 - 74 điểm (Trung bình / Fresher - Junior): Đúng một phần cơ bản nhưng còn thiếu ý bổ trợ hoặc giải thích còn mơ hồ.
+   - 20 - 49 điểm (Yếu): Trả lời sai bản chất công nghệ, nhầm lẫn khái niệm nghiêm trọng.
+   - 0 điểm: Bỏ trống hoặc câu trả lời cợt nhả, thiếu nghiêm túc ("em khóc", "em chịu", "không biết", "bỏ qua", "chẳng rút được gì").
+4. Hãy chấm technical_score (0-100) cho từng câu.
+5. TOPICS TO LEARN (topics_to_learn): Chỉ ra 3-6 chủ đề kiến thức chuyên môn cốt lõi mà ứng viên cần học/ôn tập thêm.
+6. TÀI LIỆU GỢI Ý (resources): BẮT BUỘC gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác (ví dụ: các trang docs chính thức như https://docs.oracle.com/..., https://docs.spring.io/..., https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/..., https://docs.python.org/..., https://kubernetes.io/docs/...).
 
 BẮT BUỘC gọi function {tool_name}."""
     
@@ -147,19 +153,21 @@ async def behavioral_grader_node(state: EvaluationState) -> EvaluationState:
         tool_choice=tool_name
     )
     
-    prompt = f"""Bạn là chuyên gia nhân sự và đánh giá năng lực phỏng vấn.
+    prompt = f"""Bạn là chuyên gia nhân sự và đánh giá năng lực phỏng vấn cấp cao.
 Hãy đánh giá kỹ năng giao tiếp (communication) và tư duy giải quyết vấn đề (problem solving) của ứng viên cho vị trí {state['level']} {state['position']}.
 
 Dưới đây là phần trả lời của họ:
 {state['qa_block']}
 
-QUY TẮC CHẤM ĐIỂM KỸ NĂNG MỀM & GIAO TIẾP:
-1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 70, 80, 85, 95). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
-2. Nếu câu trả lời TRỐNG, để trống, hoặc cợt nhả, thiếu nghiêm túc (ví dụ: "em khóc", "em chịu", "em chẳng rút được gì", "không biết", "bỏ qua"): BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
-3. Đối với câu hỏi Kỹ thuật/Kiến trúc: Đánh giá communication_score dựa trên độ rõ ràng, mạch lạc, thuật ngữ chuẩn xác; đánh giá problem_solving_score dựa trên tính toàn diện của giải pháp và phân tích trade-off (không ép buộc STAR cho câu hỏi lý thuyết).
-4. Nếu câu trả lời có cấu trúc rất tốt, rõ ràng, chi tiết: Chấm điểm cao (80 - 95 điểm).
-5. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu.
-6. TÀI LIỆU GỢI Ý (resources): Hãy gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác (ví dụ: các trang docs chính thức như https://pytorch.org/docs/..., https://developer.mozilla.org/..., https://huggingface.co/docs/..., https://react.dev/..., https://docs.python.org/..., https://arxiv.org/..., https://kubernetes.io/docs/...).
+QUY TẮC CHẤM ĐIỂM GIAO TIẾP & GIẢI QUYẾT VẤN ĐỀ CÔNG BẰNG & CHUẨN HÓA:
+1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm. TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
+2. NGUYÊN TẮC CÔ ĐỌNG & RÕ RÀNG:
+   - Đối với câu hỏi Kỹ thuật/Kiến trúc: Câu trả lời ngắn gọn, rành mạch, đúng thuật ngữ phải được chấm communication_score cao (85 - 95 điểm); giải pháp đúng đắn xử lý trúng vấn đề phải được chấm problem_solving_score cao (85 - 95 điểm).
+   - TUYỆT ĐỐI KHÔNG ép buộc cấu trúc STAR đối với câu hỏi kỹ thuật/khái niệm.
+   - Đối với câu hỏi Tình huống / Behavioral: Đánh giá cao câu trả lời nêu rõ bối cảnh, hành động và kết quả (STAR).
+3. Nếu câu trả lời TRỐNG, để trống, hoặc cợt nhả, thiếu nghiêm túc (ví dụ: "em khóc", "em chịu", "em chẳng rút được gì", "không biết", "bỏ qua"): BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
+4. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu.
+5. TÀI LIỆU GỢI Ý (resources): Hãy gợi ý 3-5 tài liệu học tập hoặc bài viết chuyên môn uy tín có kèm ĐƯỜNG LINK URL TRỰC TIẾP và chính xác.
 
 BẮT BUỘC gọi function {tool_name}."""
     
