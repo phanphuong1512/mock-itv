@@ -904,9 +904,10 @@ export default function CustomMockPage() {
                       <motion.div 
                         key={job.id}
                         whileHover={{ y: -5, scale: 1.01 }}
-                        onClick={() => { setSelectedJobId(job.id); setView('detail'); }}
+                        onClick={() => { setSelectedJobId(job.id); setView('detail'); setCvText(''); setCvFileName(''); }}
                         className="bg-card-bg border border-slate-200 dark:border-white/5 rounded-3xl p-5 flex flex-col justify-between min-h-[240px] group hover:border-blue-500/50 hover:shadow-xl transition-all shadow-sm overflow-hidden cursor-pointer"
                       >
+
                         {/* Top Header */}
                         <div className="flex items-start justify-between mb-2 shrink-0">
                           <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center p-1.5">
@@ -1103,7 +1104,17 @@ export default function CustomMockPage() {
                             {cvFileName}
                           </span>
                         )}
+                        {cvText.trim() && (
+                          <button
+                            onClick={() => { setCvText(''); setCvFileName(''); }}
+                            className="text-xs text-rose-500 hover:text-rose-600 font-bold ml-auto flex items-center gap-1 transition-colors px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Xóa CV (Dùng câu hỏi chuẩn)
+                          </button>
+                        )}
                       </div>
+
 
                       <input
                         ref={cvFileInputRef}
@@ -1511,13 +1522,14 @@ export default function CustomMockPage() {
             >
               <div className="mb-6 self-start">
                 <button
-                  onClick={() => { setView('list'); setCustomFile(null); }}
+                  onClick={() => { setView('list'); setCustomFile(null); setCvText(''); setCvFileName(''); }}
                   className="flex items-center gap-2 text-slate-500 hover:text-blue-500 font-extrabold transition-colors text-sm"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Quay lại danh sách
                 </button>
               </div>
+
 
               <div className="bg-card-bg border border-slate-200 dark:border-white/5 rounded-3xl p-6 lg:p-10 shadow-md">
                 <div className="flex items-center justify-between mb-8">
