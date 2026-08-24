@@ -110,11 +110,11 @@ Dưới đây là danh sách câu hỏi và câu trả lời của ứng viên:
 
 QUY TẮC CHẤM ĐIỂM CHUYÊN MÔN:
 1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 65, 75, 85, 90). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
-2. Nếu câu trả lời TRỐNG, để trống, hoặc ứng viên nói "không biết", "em chịu", "bỏ qua": BẮT BUỘC chấm technical_score = 0!
+2. Nếu câu trả lời TRỐNG, để trống, hoặc cợt nhả, thiếu nghiêm túc (ví dụ: "em chịu", "em khóc", "không biết", "bỏ qua", "chẳng rút được gì"): BẮT BUỘC chấm technical_score = 0!
 3. Nếu câu trả lời sai lệch hoặc hời hợt: Chấm điểm thấp (10 - 40 điểm).
 4. Nếu trả lời đúng trọng tâm cơ bản: Chấm điểm trung bình (50 - 70 điểm).
 5. Nếu trả lời xuất sắc, có phân tích kiến trúc, trade-offs, best practices: Chấm điểm cao (75 - 100 điểm).
-6. Hãy chấm technical_score (0-100) cho từng câu, và overall_technical_score cho toàn bộ.
+6. Hãy chấm technical_score (0-100) cho từng câu.
 
 BẮT BUỘC gọi function {tool_name}."""
     
@@ -148,10 +148,10 @@ Dưới đây là phần trả lời của họ:
 
 QUY TẮC CHẤM ĐIỂM KỸ NĂNG MỀM & GIAO TIẾP:
 1. THANG ĐIỂM BẮT BUỘC: 0 đến 100 điểm (ví dụ: 70, 80, 85, 95). TUYỆT ĐỐI KHÔNG DÙNG THANG ĐIỂM 1-10!
-2. Nếu câu trả lời TRỐNG hoặc bỏ qua: BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
+2. Nếu câu trả lời TRỐNG, để trống, hoặc cợt nhả, thiếu nghiêm túc (ví dụ: "em khóc", "em chịu", "em chẳng rút được gì", "không biết", "bỏ qua"): BẮT BUỘC chấm communication_score = 0 và problem_solving_score = 0!
 3. Đối với câu hỏi Kỹ thuật/Kiến trúc: Đánh giá communication_score dựa trên độ rõ ràng, mạch lạc, thuật ngữ chuẩn xác; đánh giá problem_solving_score dựa trên tính toàn diện của giải pháp và phân tích trade-off (không ép buộc STAR cho câu hỏi lý thuyết).
 4. Nếu câu trả lời có cấu trúc rất tốt, rõ ràng, chi tiết: Chấm điểm cao (80 - 95 điểm).
-5. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu, và overall cho toàn bộ.
+5. Hãy chấm communication_score và problem_solving_score (0-100) cho từng câu.
 
 BẮT BUỘC gọi function {tool_name}."""
     
@@ -288,14 +288,20 @@ async def synthesizer_node(state: EvaluationState) -> EvaluationState:
         })
 
     # Overall Scores
+    tech_scores = [t_list.get(idx + 1, {}).get('technical_score', 0) if (q.get('user_answer') or '').strip() else 0 for idx, q in enumerate(state['questions'])]
+    comm_scores = [b_list.get(idx + 1, {}).get('communication_score', 0) if (q.get('user_answer') or '').strip() else 0 for idx, q in enumerate(state['questions'])]
+    prob_scores = [b_list.get(idx + 1, {}).get('problem_solving_score', 0) if (q.get('user_answer') or '').strip() else 0 for idx, q in enumerate(state['questions'])]
+
     if question_scores:
         overall_score = int(sum(question_scores) / len(question_scores))
+        overall_tech = int(sum(tech_scores) / len(tech_scores))
+        overall_comm = int(sum(comm_scores) / len(comm_scores))
+        overall_prob = int(sum(prob_scores) / len(prob_scores))
     else:
         overall_score = 0
-
-    overall_tech = tech_evals.get('overall_technical_score', 0)
-    overall_comm = behav_evals.get('overall_communication_score', 0)
-    overall_prob = behav_evals.get('overall_problem_solving_score', 0)
+        overall_tech = 0
+        overall_comm = 0
+        overall_prob = 0
 
     # If all answers were blank
     if all(not (q.get('user_answer') or '').strip() for q in state['questions']):
