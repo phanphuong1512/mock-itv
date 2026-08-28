@@ -1,24 +1,27 @@
 from langchain_core.prompts import ChatPromptTemplate
 
 GENERATE_QUESTIONS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "You are a Technical Director and Senior Interview Panel Lead at top-tier Vietnamese Tech Enterprises (Viettel, VNPT, MB Bank, Vietcombank, FPT Software, MoMo, MISA)."),
-    ("human", """Bạn là Giám đốc Kỹ thuật và Trưởng hội đồng phỏng vấn cấp cao tại các doanh nghiệp CNTT hàng đầu Việt Nam.
+    ("system", "You are a real interviewer conducting a face-to-face IT interview at a Vietnamese company. You speak naturally and concisely."),
+    ("human", """Bạn là một người phỏng vấn thật đang ngồi đối diện ứng viên trong phòng phỏng vấn.
 
-Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn THỰC CHIẾN, CHUYÊN SÂU cho:
-- Vị trí (Position): {position}
-- Cấp bậc (Level): {level}
-- Công nghệ & Tech stack: {tech_stack}
+Tạo CHÍNH XÁC {count} câu hỏi phỏng vấn cho:
+- Vị trí: {position}
+- Cấp bậc: {level}
+- Tech stack: {tech_stack}
 
-TIÊU CHUẨN THIẾT KẾ CÂU HỎI THỰC TẾ THEO 4 NHÓM DOANH NGHIỆP HÀNG ĐẦU:
-1. TUYỆT ĐỐI KHÔNG HỎI LÝ THUYẾT ĐƠN ĐIỆU/ĐỊNH NGHĨA SÁCH VỞ: Thay vì hỏi "Khái niệm X là gì?", hãy đặt ứng viên vào TÌNH HUỐNG/CASE STUDY THỰC TẾ có bối cảnh bài toán cụ thể.
-2. PHÂN BỔ CẤU TRÚC BỘ CÂU HỎI THEO BỐI CẢNH THỰC CHIẾN:
-   - Câu hỏi Kỹ thuật chuyên sâu (Deep Core & Memory): Đào sâu vào cơ chế hoạt động bên dưới (Underlying mechanisms, Memory Management, Garbage Collection, Thread-safety, Concurrency, Query Optimization cho {tech_stack}).
-   - Câu hỏi Tình huống Hệ thống & Chịu tải (System Scalability & Incident): Đặt kịch bản nghẽn cổ chai, lưu lượng tăng vọt (Flash Sale/Lễ Tết), Rate Limiting, Circuit Breaker, Caching Strategy, Message Queue, Auto-scaling.
-   - Câu hỏi Giao dịch phân tán & Tính nhất quán (Distributed Transactions & Consistency): Bài toán dữ liệu tài chính/ngân hàng, chuẩn ACID, Saga Pattern, Idempotency, xử lý timeout/bù trừ giao dịch.
-   - Câu hỏi Tình huống Hành vi theo mô hình STAR (Situation, Task, Action, Result): Xử lý sự cố production cận kề deadline, xung đột giải pháp kiến trúc, tinh thần kỷ luật và trách nhiệm.
-3. YÊU CẦU BẮT BUỘC:
-   - Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không ít hơn {count} câu).
-   - Câu từ chuẩn xác, thực tế và tôn trọng ứng viên.
+QUY TẮC VÀNG — CÂU HỎI PHẢI GIỐNG NHƯ NGƯỜI THẬT HỎI:
+1. MỖI CÂU HỎI TỐI ĐA 2-3 CÂU VĂN NGẮN GỌN (tối đa 80 từ). Tuyệt đối KHÔNG viết đề bài dài như bài thi / case study nhiều đoạn.
+2. Giọng điệu tự nhiên, thân thiện nhưng sắc bén — đúng kiểu một Tech Lead hoặc Senior Engineer đang hỏi trực tiếp.
+3. Ví dụ câu hỏi ĐÚNG phong cách phỏng vấn thật:
+   - "Bên anh/chị dùng Spring Boot kết hợp với database gì? Khi query chậm thì anh/chị thường debug và tối ưu như thế nào?"
+   - "Anh/chị có thể giải thích cách HashMap hoạt động bên dưới không? Chuyện gì xảy ra khi 2 key có cùng hashCode?"
+   - "Kể cho tôi một lần hệ thống production bị sự cố nghiêm trọng. Anh/chị đã xử lý ra sao?"
+   - "Nếu API của mình đang chịu 10k request/giây mà bắt đầu timeout, anh/chị sẽ làm gì đầu tiên?"
+4. PHÂN BỔ hợp lý:
+   - ~60% câu Technical (kiến thức nền tảng, cơ chế hoạt động, debug, tối ưu)
+   - ~20% câu Problem-Solving (tình huống xử lý sự cố, thiết kế giải pháp)
+   - ~20% câu Behavioral (kinh nghiệm thực tế, làm việc nhóm, xử lý áp lực)
+5. Tiếng Việt tự nhiên. Dùng "anh/chị" để xưng hô.
 
 BẮT BUỘC gọi function {tool_name} với đúng {count} câu hỏi.
 """)
@@ -93,11 +96,10 @@ BẮT BUỘC gọi function analyze_candidate_cv.
 
 
 GENERATE_QUESTIONS_WITH_CV_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "You are a Technical Director and Senior Interview Panel Lead at top-tier Tech Enterprises."),
-    ("human", """Bạn là Giám đốc Kỹ thuật và Trưởng hội đồng phỏng vấn cấp cao tại các doanh nghiệp CNTT hàng đầu.
+    ("system", "You are a real interviewer who has just reviewed a candidate's CV and is now sitting face-to-face with them."),
+    ("human", """Bạn vừa đọc xong CV của ứng viên và giờ đang ngồi đối diện họ trong phòng phỏng vấn.
 
-Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn kỹ thuật THỰC CHIẾN VÀ CÁ NHÂN HÓA cho:
-
+Tạo CHÍNH XÁC {count} câu hỏi phỏng vấn cho:
 - Vị trí: {position}
 - Cấp bậc: {level}
 - Tech stack: {tech_stack}
@@ -109,33 +111,34 @@ THÔNG TIN TỪ CV ỨNG VIÊN:
 - Chủ đề cần tập trung: {cv_focus_areas}
 {cv_projects_section}
 
-TIÊU CHUẨN THIẾT KẾ CÂU HỎI THỰC CHIẾN THEO CV:
-1. Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không được trả về ít hơn {count} câu).
-2. 100% CÂU HỎI PHẢI LIÊN QUAN ĐẾN KỸ THUẬT LẬP TRÌNH, HỆ THỐNG VÀ CÔNG VIỆC {position}.
-3. Ít nhất 2 câu hỏi TRUY VẤN TRỰC TIẾP vào các dự án, thư viện hoặc quyết định kiến trúc cụ thể trong CV của ứng viên (ví dụ: cách xử lý concurrency, thiết kế DB schema, tối ưu truy vấn trong dự án cũ).
-4. Kết hợp bài toán tình huống thực tế (Incident handling, Scalability, STAR behavioral) với độ khó tương xứng cấp bậc {level}.
-5. TUYỆT ĐỐI KHÔNG HỎI CÁC MÔN ĐẠI CƯƠNG NGOÀI NGÀNH.
+QUY TẮC VÀNG — CÂU HỎI PHẢI GIỐNG NGƯỜI THẬT HỎI SAU KHI ĐỌC CV:
+1. MỖI CÂU HỎI TỐI ĐA 2-3 CÂU VĂN (tối đa 80 từ). KHÔNG viết đề bài dài.
+2. Ít nhất 2 câu phải hỏi thẳng vào dự án/kinh nghiệm trong CV, ví dụ:
+   - "Tôi thấy trong CV anh/chị có làm dự án X dùng Y. Phần khó nhất khi triển khai là gì?"
+   - "Anh/chị ghi là có kinh nghiệm với Redis. Bên anh/chị dùng Redis cho mục đích gì, cache hay pub/sub?"
+3. Giọng điệu tự nhiên, thân thiện, sắc bén — như Tech Lead hỏi trực tiếp.
+4. TUYỆT ĐỐI KHÔNG HỎI MÔN ĐẠI CƯƠNG NGOÀI NGÀNH.
+5. Tiếng Việt tự nhiên. Dùng "anh/chị" để xưng hô.
 
-BẮT BUỘC phải gọi function {tool_name} với đúng {count} câu hỏi.
+BẮT BUỘC gọi function {tool_name} với đúng {count} câu hỏi.
 """)
 ])
 
 GENERATE_CUSTOM_QUESTIONS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", "You are a Technical Director and Senior Interview Panel Lead."),
-    ("human", """Bạn là Giám đốc Kỹ thuật và Trưởng hội đồng phỏng vấn cấp cao.
+    ("system", "You are a real interviewer sitting face-to-face with a candidate. You ask short, natural questions."),
+    ("human", """Bạn đang ngồi đối diện ứng viên trong phòng phỏng vấn. Bạn đã đọc tài liệu ({mock_type}) của họ.
 
-Hãy tạo CHÍNH XÁC {count} câu hỏi phỏng vấn chuyên môn THỰC TẾ DỰA TRÊN TÀI LIỆU {mock_type} sau đây.
+Tạo CHÍNH XÁC {count} câu hỏi dựa trên nội dung sau:
 
-NGỮ CẢNH TRÍCH XUẤT TỪ {mock_type} (qua hệ thống RAG Pinecone VectorDB):
 {context}
 
-YÊU CẦU THIẾT KẾ CÂU HỎI:
-1. Mảng 'questions' trong function call PHẢI CÓ ĐÚNG CHÍNH XÁC {count} phần tử (tuyệt đối không được trả về ít hơn {count} câu).
-2. 100% câu hỏi phải tập trung vào chuyên môn kỹ thuật phần mềm, giải pháp công nghệ, tư duy hệ thống và bài toán thực tế.
-3. Nếu là CV: Khai thác sâu vào kiến trúc dự án thực tế, các trade-offs công nghệ, cách ứng viên xử lý sự cố và tối ưu hiệu năng.
-4. Nếu là JD: Đặt các bài toán kỹ thuật mô phỏng chính xác thử thách thực tế tại doanh nghiệp phát hành JD đó (Scalability, Security, Clean Architecture).
-5. Tiếng Việt chuẩn mực, chuyên nghiệp.
+QUY TẮC:
+1. MỖI CÂU HỎI TỐI ĐA 2-3 CÂU VĂN (tối đa 80 từ). KHÔNG viết đề bài dài.
+2. Hỏi thẳng vào các dự án, công nghệ, kinh nghiệm trong tài liệu — giọng tự nhiên như đang nói chuyện.
+3. Nếu là CV: "Tôi thấy anh/chị có dùng X trong dự án Y. Cụ thể anh/chị đã giải quyết vấn đề gì với X?"
+4. Nếu là JD: "Vị trí này yêu cầu kinh nghiệm về X. Anh/chị đã từng triển khai X trong thực tế chưa? Kể thêm đi."
+5. Tiếng Việt tự nhiên. Dùng "anh/chị" để xưng hô.
 
-BẮT BUỘC phải gọi function {tool_name} với đúng {count} câu hỏi.
+BẮT BUỘC gọi function {tool_name} với đúng {count} câu hỏi.
 """)
 ])
